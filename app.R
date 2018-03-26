@@ -6,8 +6,8 @@
 #
 #    http://shiny.rstudio.com/
 #
-require(rgbif)
 library(shiny)
+require(rgbif)
 require(tidyverse)
 require(sf)
 require(sp)
@@ -27,24 +27,52 @@ apikey <- "AIzaSyAB6DJYmiY-82HLSgo0CLCDeZ9h2p6l9xY"
 cycle_api <- "8e9f2ec7f09a1ff4"
 
 # Define UI for application that draws a histogram
-ui <- fluidPage(
-  leafletOutput("leafmap"),
-  searchInput("search","Search", placeholder = "City name or adress",
-              value = "Jena" ,
-              btnSearch = icon("search"),
-              btnReset = icon("remove")),
-  actionButton("routing","Route"),
-  sliderTextInput("plan", "Routing style",
-                  choices = c("fastest","balanced","quietest")),
-  tableOutput("data"),
-  tableOutput("weather"),
-  textOutput("height"),
-  tableOutput("pKm"),
-  tabsetPanel(
+body <- dashboardBody(
+  fluidRow(
+    column(width = 12,
+      box(width = NULL,solidHeader = TRUE,
+          searchInput(width = NULL,"search","Search", placeholder = "City name or adress",
+                      value = "Jena" ,
+                      btnSearch = icon("search"),
+                      btnReset = icon("remove")),
+          column(width = 10,
+          leafletOutput("leafmap",height = 700)),
+          column(width = 2,
+                 box(width= NULL,collapsible = T,solidHeader = T,
+                 valueBoxOutput("weather",width = NULL),
+                 valueBoxOutput("percip", width = NULL),
+                 valueBoxOutput("temp", width = NULL)
+          ))
+          )
+    )
+    ),
+  fluidRow(
+    box(actionButton("routing","Route")),
+    box(sliderTextInput("plan", "Routing style",
+                  choices = c("fastest","balanced","quietest"))),
+    box(tableOutput("data"),
+        textOutput("height"),
+        tableOutput("pKm"),
+        tableOutput("weather2")),
+    box(knobInput("pace", label = "Speed in km/h: ",
+            value = 5,
+            thickness = 0.3,
+            cursor = TRUE,
+            width = 150,
+            height = 150,
+            min = 2,max = 50
+            )),
+  box(tableOutput("traveltime")),
+  box(tabsetPanel(
     tabPanel("Airline",plotlyOutput("plot")),
-    tabPanel("Route", plotlyOutput("plot_route"))
+    tabPanel("Route", plotlyOutput("plot_route")))
+  ))
+)
 
-  )
+ui <- dashboardPage(
+                     dashboardHeader(disable = T),
+                     dashboardSidebar(disable = T),
+                     body
 )
 
 # Define server logic required to draw a histogram
@@ -54,6 +82,8 @@ server <- function(input, output, session) {
   values <- reactiveValues(df = NULL)
   tmp_route <- reactiveValues(df = NULL)
   elevPoints <- reactiveValues(df = NULL)
+  pKm <-  reactiveValues(df = NULL)
+  weatherdata <- reactiveValues(df = NULL)
   #functions
   create_lines <- function(data){
     if(!is.null(data)){
@@ -131,7 +161,7 @@ server <- function(input, output, session) {
     return(route)
   }
   search_plc <- function(instring){
-    xy <- geocode(instring, output = "latlon",source = "dsk")
+    xy <- geo_code(instring)
   }
   height_diff <- function(elev_points, col){
     st_geometry(elev_points) <- NULL
@@ -173,6 +203,17 @@ server <- function(input, output, session) {
     }
 
   }
+  traveltime <- function(pkm, speed){
+    t <- (pkm/speed)*60
+    if(t > 60){
+      min <- (t - floor(t))*60
+      h <- floor(pkm/speed)
+      time <- data.frame(h = h, min = min)
+    } else {
+      min <- t
+      time <- data.frame(h = 0, min = min)
+    }
+  }
   #outputs
   output$leafmap <- renderLeaflet({
     leaflet() %>%
@@ -180,7 +221,7 @@ server <- function(input, output, session) {
       addDrawToolbar(editOptions = editToolbarOptions(remove = F),singleFeature = T,
                     circleOptions = F,polygonOptions = F,rectangleOptions = F,
                     markerOptions = F) %>% addProviderTiles(providers$HikeBike) %>%
-      setView(lng = search_plc(input$search)[,1] , lat = search_plc(input$search)[,2],
+      setView(lng = search_plc(input$search)[1] , lat = search_plc(input$search)[2],
               zoom = 14)
   })
   observe({
@@ -243,20 +284,146 @@ server <- function(input, output, session) {
     }
   })
 
-  output$data <- renderTable({values$df
-    })
-  output$weather <- renderTable ({
-    weather(values$df)[4,]
+  output$temp <- renderValueBox ({
+    if(is.null(weatherdata$df)){
+      valueBox(
+        subtitle = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
+        color = "olive"
+      )
+    } else {
+    mtemp <- paste0(weatherdata$df[4,"minTemperature"]," / ",weatherdata$df[4,"maxTemperature"])
+    if(weatherdata$df[4,5] < 0){
+      valueBox(
+        subtitle = "min/max - Cold",value = mtemp,icon = icon("thermometer-empty "),
+        color = "teal"
+      )
+    }
+    if(weatherdata$df[4,6] > 25){
+      valueBox(
+        subtitle = "min/max - Hot",value = mtemp,icon = icon("thermometer-three-quarters"),
+        color = "red"
+      )
+    } else {
+      valueBox(
+        subtitle = "min/max - Regular",value = mtemp,icon = icon("thermometer-quarter"),
+        color = "lime"
+      )
+    }
+    }
   })
-  output$height <- renderPrint(
+  output$percip <- renderValueBox ({
+    if(is.null(weatherdata$df)){
+      valueBox(
+        subtitle = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
+        color = "olive"
+      )
+    } else {
+    percip <- sum(subset(weatherdata$df,interval == "6")[,4])
+    if(percip > 0){
+      valueBox(
+        subtitle = "Percipitation",paste0(percip,"mm "),icon = icon("tint"),
+        color = "aqua"
+      )
+    } else {
+      valueBox(
+        subtitle = "no Percipitation",paste0(0, "mm "),
+        color = "green"
+      )
+    }
+    }
+  })
+  output$weather <- renderValueBox ({
+    if(is.null(weatherdata$df)){
+      valueBox(
+        subtitle = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
+        color = "olive"
+      )
+    } else {
+    if(weatherdata$df[4,7] %in% c("Sun")){
+      valueBox(
+        subtitle = "Weather condition",weatherdata$df[4,7],icon = icon("certificate",lib = "glyphicon"),
+        color = "yellow"
+        )
+    }
+    else if(weatherdata$df[4,7] %in% c("LightCloud","PartlyCloud","Cloud")){
+      valueBox(
+        subtitle = "Weather condition", icon = icon("cloud"),
+        color = "light-blue", value = weatherdata$df[4,7]
+      )
+    }
+    else if(weatherdata$df[4,7] %in% c("LightRainSun","LightRainThunderSun","LightRain","Rain","RainThunder","RainSun")){
+      valueBox(
+        subtitle = "Weather condition", icon = icon("tint"),
+        color = "light-blue", value = weatherdata$df[4,7]
+      )
+    }
+    else if(weatherdata$df[4,7] %in% c( "SleetSun",
+                                       "SnowSun", "Sleet",
+                                       "Snow",
+                                       "SnowThunder", "SleetSunThunder",
+                                       "SnowSunThunder",  "LightSleetSun",
+                                       "HeavySleetSun",
+                                       "LightSnowSun",
+                                       "HeavysnowSun",
+                                       "LightSleet",
+                                       "HeavySleet",
+                                       "LightSnow",
+                                       "HeavySnow")){
+      valueBox(
+        subtitle = "Weather condition", icon =icon("asterisk", lib = "glyphicon"),
+        color = "teal", value =weatherdata$df[4,7]
+      )
+    }
+    else if(weatherdata$df[4,7] %in% c("Fog")){
+      valueBox(
+        subtitle = "Weather condition", icon = icon("align-justify "),
+        color = "navy", value = weatherdata$df[4,7]
+      )
+    }
+    else if(weatherdata$df[4,7] %in% c("SleetThunder",
+                                       "DrizzleThunderSun",
+                                       "RainThunderSun",
+                                       "LightSleetThunderSun",
+                                       "HeavySleetThunderSun",
+                                       "LightSnowThunderSun",
+                                       "HeavySnowThunderSun",
+                                       "DrizzleThunder",
+                                       "LightSleetThunder",
+                                       "HeavySleetThunder",
+                                       "LightSnowThunder",
+                                       "HeavySnowThunder")){
+      valueBox(
+        subtitle = "Weather condition",icon = icon("bolt"),
+        color = "red", value = weatherdata$df[4,7]
+      )
+    }
+    else if(weatherdata$df[4,7] %in% c("DrizzleSun","Drizzle")){
+      valueBox(
+        subtitle = "Weather condition", icon = icon("braille"),
+        color = "purple", value = weatherdata$df[4,7]
+      )
+    }
+    }
+  })
+
+
+  output$data <- renderTable({
+    values$df
+  })
+  output$height <- renderPrint({
     paste0(format(height_diff(elevPoints$df, col = "elev"),digits = 5), "", "m",
            " height diff.")
-  )
-  output$pKm <- renderTable(
-    performance_km(elevPoints$df,col="elev")
-  )
-
-
+  })
+  output$pKm <- renderTable({
+    pKm$df <- performance_km(elevPoints$df,col="elev")
+  })
+  output$weather2 <- renderTable({
+    weatherdata$df <- weather(values$df)
+    return(weatherdata$df[4,])
+  })
+  output$traveltime <- renderTable({
+    traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)
+  })
   output$plot <- renderPlotly({
     if(is.null(values$df)){
      ggplot()
