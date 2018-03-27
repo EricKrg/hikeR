@@ -15,45 +15,102 @@ require(rgeos)
 require(data.table)
 require(leaflet)
 require(leaflet.extras)
-require(elevatr)
 require(shiny)
 require(shinydashboard)
 require(plotly)
 require(stplanr)
 require(weatherr)
 require(shinyWidgets)
+require(formattable)
 
 apikey <- "AIzaSyAB6DJYmiY-82HLSgo0CLCDeZ9h2p6l9xY"
 cycle_api <- "8e9f2ec7f09a1ff4"
 
+#style funs
+progressBar2 <- function (id, value, total = NULL, display_pct = FALSE, size = NULL,
+                          status = NULL, striped = FALSE, title = NULL)
+{
+  if (is.null(total)) {
+    percent <- round(value,digits = 2)
+    print(percent)
+  }
+  else {
+    percent <- round(value,digits = 2)
+    print(percent)
+  }
+  if (!is.null(title) | !is.null(total)) {
+    title <- htmltools::tags$span(class = "progress-text",
+                                  title, htmltools::HTML("&nbsp;"))
+
+  }
+  if (is.null(total)) {
+    total <- htmltools::tags$span(class = "progress-number",
+                                  htmltools::tags$b(round(value,digits = 2), id = paste0(id, "-value")))
+    print(total)
+    print(id)
+  }
+  tagPB <- htmltools::tags$div(class = "progress-group", title,
+                               total, htmltools::tags$div(class = if (!is.null(size))
+                                 paste("progress", round(size,digits = 2))
+                                 else "progress", htmltools::tags$div(id = id, style = if (percent >
+                                                                                           0)
+                                   paste0("width:",round(percent, digits = 2), "%;"), style = if (display_pct)
+                                     "min-width: 2em;", class = "progress-bar", class = if (!is.null(status))
+                                       paste0("progress-bar-", status), class = if (striped)
+                                         "progress-bar-striped", role = "progressbar", if (display_pct)
+                                           paste0(round(percent, digits = 2), "%"))))
+
+}
+
+
 # Define UI for application that draws a histogram
 body <- dashboardBody(
   fluidRow(
+    box(title ="hikeR",solidHeader = T,background = "black",width = 12)
+  ),
+  fluidRow(
     column(width = 12,
       box(width = NULL,solidHeader = TRUE,
-          searchInput(width = NULL,"search","Search", placeholder = "City name or adress",
+              searchInput(width = NULL,"search","Search", placeholder = "City name or adress",
                       value = "Jena" ,
                       btnSearch = icon("search"),
                       btnReset = icon("remove")),
-          column(width = 10,
-          leafletOutput("leafmap",height = 700)),
-          column(width = 2,
+          column(width = 9,
+                 leafletOutput("leafmap",height = 700)),
+          column(width = 3,
                  box(width= NULL,collapsible = T,solidHeader = T,
                  valueBoxOutput("weather",width = NULL),
                  valueBoxOutput("percip", width = NULL),
                  valueBoxOutput("temp", width = NULL)
-          ))
+          ),
+          fluidRow(
+                   tabBox(width = NULL,
+                          tabPanel(icon = icon("tasks"),title = "Trip data",
+                                   tableOutput("height"),
+                                   progressBar2(title = "performance Kilometer (km)" ,id = "pKm",value = 0, status = "danger",
+                                               display_pct = TRUE),
+                                   progressBar2(title = "horizontal distance (km)", id = "flat",value = 0, status = "info",
+                                                display_pct = TRUE),
+                                   progressBar2(title = "vertical up (m)" ,id = "up",value = 0, status = "info",
+                                                display_pct = TRUE),
+                                   progressBar2(title = "vertical down (m)", id = "down",value = 0, status = "info",
+                                                display_pct = TRUE)
+                            ),
+                          tabPanel(title = "Trip coords.",icon = icon("map-marker"),
+                                   tableOutput("data"))
+                          )
+                   ),
+          fluidRow(
+            box(solidHeader = T,background = "black", width = NULL,
+                sliderTextInput("plan", "Routing style",
+                                choices = c("fastest","balanced","quietest")),
+                actionButton("routing","Route"))
+            )
           )
-    )
-    ),
+          )
+          )
+      ),
   fluidRow(
-    box(actionButton("routing","Route")),
-    box(sliderTextInput("plan", "Routing style",
-                  choices = c("fastest","balanced","quietest"))),
-    box(tableOutput("data"),
-        textOutput("height"),
-        tableOutput("pKm"),
-        tableOutput("weather2")),
     box(knobInput("pace", label = "Speed in km/h: ",
             value = 5,
             thickness = 0.3,
@@ -63,10 +120,10 @@ body <- dashboardBody(
             min = 2,max = 50
             )),
   box(tableOutput("traveltime")),
-  box(tabsetPanel(
-    tabPanel("Airline",plotlyOutput("plot")),
-    tabPanel("Route", plotlyOutput("plot_route")))
-  ))
+      tabBox(width = 12,
+             tabPanel("Airline",plotlyOutput("plot",width = NULL)),
+             tabPanel("Route", plotlyOutput("plot_route")))
+  )
 )
 
 ui <- dashboardPage(
@@ -82,8 +139,11 @@ server <- function(input, output, session) {
   values <- reactiveValues(df = NULL)
   tmp_route <- reactiveValues(df = NULL)
   elevPoints <- reactiveValues(df = NULL)
+  elevPoints_route <- reactiveValues(df = NULL)
   pKm <-  reactiveValues(df = NULL)
   weatherdata <- reactiveValues(df = NULL)
+  height <- reactiveValues(df = NULL)
+  routed <- reactiveValues(df = NULL)
   #functions
   create_lines <- function(data){
     if(!is.null(data)){
@@ -134,7 +194,7 @@ server <- function(input, output, session) {
     }
     points$elev <- t$elevation
     points$distance <- cumsum(points$distance)
-    return(points)
+    points
     }
   weather <- function(in_lines){
     lines <- create_lines(in_lines)
@@ -175,19 +235,32 @@ server <- function(input, output, session) {
       }
     }
   performance_km <- function(elev_points, col){
+    print("func elev 1")
+    print(routed$df)
     tmp <- list()
     down <- 0
     up <- 0
     updist <- 0
     data_p <- elev_points
+
     st_geometry(data_p) <- NULL
-    print(elev_points)
+
+    if(routed$df){
+      print("condition route")
+    dist <- as.numeric(st_length(st_as_sf(tmp_route$df)))/1000
+    print("routed dist")
+    } else {
+    dist <- data_p[nrow(data_p),1]
+    }
+    print("dist")
+    print(dist)
+    print("func elev")
+    print(data_p)
     for (i in 1:nrow(elev_points)){
       if(i == nrow(elev_points)){
-        route_len <-sum(as.numeric(st_length(st_as_sf(tmp_route$df)))/1000)
+        route_len <-sum(as.numeric(dist))
         pKm <- route_len + up/100 + down/150
         pKm <- data.frame(pKm = pKm, up = up, down = down, flat = route_len)
-        return(pKm)
       } else {
         print(data_p[i,col] - data_p[i+1,col])
       if(data_p[i,col] - data_p[i+1,col] < 0){
@@ -201,6 +274,7 @@ server <- function(input, output, session) {
         }
     }
     }
+    pKm
 
   }
   traveltime <- function(pkm, speed){
@@ -214,6 +288,9 @@ server <- function(input, output, session) {
       time <- data.frame(h = 0, min = min)
     }
   }
+
+
+
   #outputs
   output$leafmap <- renderLeaflet({
     leaflet() %>%
@@ -238,7 +315,19 @@ server <- function(input, output, session) {
   })
   observeEvent(input$routing, {
     print("route!")
+    routed$df <- TRUE
     tmp_route$df <- routing(values$df)
+    elevPoints_route$df <- spatial(tmp_route$df)
+    height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
+    print("elev route")
+    print(elevPoints_route$df)
+    pKm$df <- performance_km(elevPoints_route$df,col="elev")
+    pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
+    updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
+    updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
+    updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
+    updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
+
   })
 
   # New Feature
@@ -246,6 +335,14 @@ server <- function(input, output, session) {
     print("New Feature")
     print(input$leafmap_draw_new_feature)
     tmp_route$df <- NULL
+    elevPoints_route$df <- NULL
+    elevPoints$df <- NULL
+    pKm$df <- NULL
+    updateProgressBar(session = session, id = "pKm", value = 0,total = 100)
+    updateProgressBar(session = session, id = "flat", value = 0,total = 100)
+    updateProgressBar(session = session, id = "up", value = 0,total = 100)
+    updateProgressBar(session = session, id = "down", value = 0,total = 100)
+    routed$df <- FALSE
   })
 
   # Edited Features
@@ -276,6 +373,17 @@ server <- function(input, output, session) {
         y[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[1]]
     }
     values$df <- data.frame(x = y , y = x) #mixed it up
+    weatherdata$df <- weather(values$df)
+    elevPoints$df <- spatial(values$df)
+    height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
+    print("elev df")
+    print(elevPoints$df)
+    pKm$df <- performance_km(elevPoints$df,col="elev")
+    pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
+    updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
+    updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
+    updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
+    updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
     print("values")
     print(values$df)
     if(!is.null(tmp_route$df)){
@@ -283,7 +391,7 @@ server <- function(input, output, session) {
     }
     }
   })
-
+# weather
   output$temp <- renderValueBox ({
     if(is.null(weatherdata$df)){
       valueBox(
@@ -405,22 +513,28 @@ server <- function(input, output, session) {
     }
     }
   })
-
-
-  output$data <- renderTable({
-    values$df
-  })
-  output$height <- renderPrint({
-    paste0(format(height_diff(elevPoints$df, col = "elev"),digits = 5), "", "m",
-           " height diff.")
-  })
-  output$pKm <- renderTable({
-    pKm$df <- performance_km(elevPoints$df,col="elev")
-  })
   output$weather2 <- renderTable({
     weatherdata$df <- weather(values$df)
     return(weatherdata$df[4,])
   })
+
+  output$data <- renderTable({
+    values$df
+  })
+  output$height <- renderTable({
+    if(!is.null(height$df) & !is.null(pKm$df)){
+
+     # height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
+      all <- data.frame(distance= pKm$df[,4], height_diff = height$df)
+    }
+    else if(!is.null(height$df) & is.null(pKm$df)){
+      all <- data.frame(distance= 0, height_diff = height$df)
+    } else {
+      all <- data.frame(distance= 0, height_diff = 0)
+    }
+    return(all)
+  })
+
   output$traveltime <- renderTable({
     traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)
   })
@@ -428,7 +542,8 @@ server <- function(input, output, session) {
     if(is.null(values$df)){
      ggplot()
     } else {
-    elevPoints$df <- spatial(values$df)
+    #elevPoints$df <- spatial(values$df)
+    #height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
     p <- elevPoints$df %>%
       ggplot(aes(x = distance, y = elev)) + geom_area() + theme_minimal()
 
@@ -439,8 +554,8 @@ server <- function(input, output, session) {
     if(is.null(tmp_route$df)){
       ggplot()
     } else {
-    elevPoints$df <- spatial(tmp_route$df)
-    p <- elevPoints$df %>%
+    height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
+    p <- elevPoints_route$df %>%
         ggplot(aes(x = distance, y = elev)) + geom_area() + theme_minimal()
 
       ggplotly(p)
