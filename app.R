@@ -76,7 +76,7 @@ body <- dashboardBody(
                       btnSearch = icon("search"),
                       btnReset = icon("remove")),
           column(width = 9,
-                 leafletOutput("leafmap",height = 700)),
+                 leafletOutput("leafmap",height = 900)),
           column(width = 3,
                  box(width= NULL,collapsible = T,solidHeader = T,
                  valueBoxOutput("weather",width = NULL),
@@ -96,6 +96,8 @@ body <- dashboardBody(
                                    progressBar2(title = "vertical down (m)", id = "down",value = 0, status = "info",
                                                 display_pct = TRUE)
                             ),
+                          tabPanel(icon = icon("caret-up"),"Airline",plotlyOutput("plot",width = NULL)),
+                          tabPanel(icon = icon("caret-up"),"Route", plotlyOutput("plot_route")),
                           tabPanel(title = "Trip coords.",icon = icon("map-marker"),
                                    tableOutput("data"))
                           )
@@ -111,18 +113,15 @@ body <- dashboardBody(
           )
       ),
   fluidRow(
-    box(knobInput("pace", label = "Speed in km/h: ",
-            value = 5,
-            thickness = 0.3,
-            cursor = TRUE,
-            width = 150,
-            height = 150,
-            min = 2,max = 50
-            )),
-  box(tableOutput("traveltime")),
-      tabBox(width = 12,
-             tabPanel("Airline",plotlyOutput("plot",width = NULL)),
-             tabPanel("Route", plotlyOutput("plot_route")))
+      box(knobInput("pace", label = "Speed in km/h: ",
+                value = 5,
+                thickness = 0.3,
+                cursor = TRUE,
+                width = 150,
+                height = 150,
+                min = 2,max = 50
+  )),
+  box(tableOutput("traveltime"))
   )
 )
 
@@ -148,7 +147,6 @@ server <- function(input, output, session) {
   create_lines <- function(data){
     if(!is.null(data)){
       coordinates(data) <- c("x","y")
-      print(data)
       lines <- SpatialLines(list(Lines(list(Line(data)), "id")))
       lines <- st_as_sf(lines)
       st_crs(lines) <- 4326
@@ -157,7 +155,6 @@ server <- function(input, output, session) {
   }
   spatial <- function(data){
     if(class(data)[1] != "SpatialLinesDataFrame"){ #filter results form routing
-    print("no sp or sf")
       lines <- create_lines(data)
     } else {
       lines <- st_as_sf(data)
@@ -173,11 +170,9 @@ server <- function(input, output, session) {
     start <- st_sf(geometry = st_sfc(st_point(st_coordinates(lines)[1,1:2])),crs = 4326)
     points <- rbind(start, points)
 
-    print(points)
     xy <- as.data.frame(st_coordinates(points))
-    print("elev")
     t<- elevation(longitude = xy$X,latitude = xy$Y, key = apikey)
-    print(t)
+
     tmp <- 0
     j <- 1
     for (i in 1:nrow(points)){
@@ -217,7 +212,6 @@ server <- function(input, output, session) {
       }
     }
     route <- do.call(rbind,tmp)
-    print(class(route))
     return(route)
   }
   search_plc <- function(instring){
@@ -235,8 +229,6 @@ server <- function(input, output, session) {
       }
     }
   performance_km <- function(elev_points, col){
-    print("func elev 1")
-    print(routed$df)
     tmp <- list()
     down <- 0
     up <- 0
@@ -246,16 +238,13 @@ server <- function(input, output, session) {
     st_geometry(data_p) <- NULL
 
     if(routed$df){
-      print("condition route")
+
     dist <- as.numeric(st_length(st_as_sf(tmp_route$df)))/1000
-    print("routed dist")
+
     } else {
     dist <- data_p[nrow(data_p),1]
     }
-    print("dist")
-    print(dist)
-    print("func elev")
-    print(data_p)
+
     for (i in 1:nrow(elev_points)){
       if(i == nrow(elev_points)){
         route_len <-sum(as.numeric(dist))
@@ -304,23 +293,38 @@ server <- function(input, output, session) {
   observe({
     if(!is.null(tmp_route$df)){
     leafletProxy("leafmap", data = tmp_route$df) %>%
-      clearShapes() %>% addPolylines()# %>%
-        # setView(lng = mean(st_coordinates(tmp_route$df)[,1]),
-        #         lat = mean(st_coordinates(tmp_route$df)[,2]),
-        #         zoom = 13)
+      clearShapes() %>% addPolylines()
     } else {
       leafletProxy("leafmap", data = c()) %>%
         clearShapes()
     }
   })
+  observe({
+    eventdata <- event_data("plotly_hover", source = "routed")
+    if(!is.null(eventdata)){
+      leafletProxy("leafmap", data = eventdata) %>%
+        removeShape("p") %>%
+        addCircles(lng = eventdata[,3],lat = eventdata[,4] ,
+                   color = "red",radius = 5,fill = "red",layerId = "p")
+    }
+  })
+
+  # observe({
+  #   if(!is.null(eventdata$df)){
+  #     leafletProxy("leafmap", data = eventdata$df) %>%
+  #       addCircles(lng = eventdata$df[,3],lat = eventdata$df[,4] ,color = "red")
+  #   } else {
+  #     leafletProxy("leafmap", data = c()) %>%
+  #       clearShapes()
+  #   }
+  # })
   observeEvent(input$routing, {
     print("route!")
     routed$df <- TRUE
     tmp_route$df <- routing(values$df)
     elevPoints_route$df <- spatial(tmp_route$df)
     height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
-    print("elev route")
-    print(elevPoints_route$df)
+
     pKm$df <- performance_km(elevPoints_route$df,col="elev")
     pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
     updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
@@ -343,6 +347,7 @@ server <- function(input, output, session) {
     updateProgressBar(session = session, id = "up", value = 0,total = 100)
     updateProgressBar(session = session, id = "down", value = 0,total = 100)
     routed$df <- FALSE
+    gc()
   })
 
   # Edited Features
@@ -376,8 +381,6 @@ server <- function(input, output, session) {
     weatherdata$df <- weather(values$df)
     elevPoints$df <- spatial(values$df)
     height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
-    print("elev df")
-    print(elevPoints$df)
     pKm$df <- performance_km(elevPoints$df,col="elev")
     pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
     updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
@@ -390,6 +393,10 @@ server <- function(input, output, session) {
       tmp_route$df <- NULL
     }
     }
+  })
+  observeEvent(input$plotly_hover,{
+    print("New  plotly")
+    print(input$plotly_hover)
   })
 # weather
   output$temp <- renderValueBox ({
@@ -542,12 +549,10 @@ server <- function(input, output, session) {
     if(is.null(values$df)){
      ggplot()
     } else {
-    #elevPoints$df <- spatial(values$df)
-    #height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
-    p <- elevPoints$df %>%
-      ggplot(aes(x = distance, y = elev)) + geom_area() + theme_minimal()
-
-    ggplotly(p)
+      elevPoints$df$x <- st_coordinates(elevPoints$df)[,1]
+      elevPoints$df$y <- st_coordinates(elevPoints$df)[,2]
+    p <- plot_ly(elevPoints$df, x = ~x, y =  ~y, z = ~elev,
+                 type = 'scatter3d', mode = 'lines', source = "routed")
     }
   })
   output$plot_route <- renderPlotly({
@@ -555,11 +560,12 @@ server <- function(input, output, session) {
       ggplot()
     } else {
     height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
-    p <- elevPoints_route$df %>%
-        ggplot(aes(x = distance, y = elev)) + geom_area() + theme_minimal()
 
-      ggplotly(p)
-    }
+    elevPoints_route$df$x <- st_coordinates(elevPoints_route$df)[,1]
+    elevPoints_route$df$y <- st_coordinates(elevPoints_route$df)[,2]
+    p <- plot_ly(elevPoints_route$df, x = ~x, y = ~y, z = ~elev,
+               type = 'scatter3d', mode = 'lines', source = "routed")
+  }
   })
   output$plot2 <- renderPlot({
     if(is.null(values$df)){
