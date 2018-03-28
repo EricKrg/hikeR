@@ -22,21 +22,20 @@ require(stplanr)
 require(weatherr)
 require(shinyWidgets)
 require(formattable)
+require(mapview)
 
 apikey <- "AIzaSyAB6DJYmiY-82HLSgo0CLCDeZ9h2p6l9xY"
 cycle_api <- "8e9f2ec7f09a1ff4"
-
+graph_hopper <- "170ca04c-aef5-4efc-9691-ec8325d934ef"
 #style funs
 progressBar2 <- function (id, value, total = NULL, display_pct = FALSE, size = NULL,
                           status = NULL, striped = FALSE, title = NULL)
 {
   if (is.null(total)) {
-    percent <- round(value,digits = 2)
-    print(percent)
+    percent <- value
   }
   else {
-    percent <- round(value,digits = 2)
-    print(percent)
+    percent <- value
   }
   if (!is.null(title) | !is.null(total)) {
     title <- htmltools::tags$span(class = "progress-text",
@@ -45,20 +44,19 @@ progressBar2 <- function (id, value, total = NULL, display_pct = FALSE, size = N
   }
   if (is.null(total)) {
     total <- htmltools::tags$span(class = "progress-number",
-                                  htmltools::tags$b(round(value,digits = 2), id = paste0(id, "-value")))
-    print(total)
-    print(id)
+                                  htmltools::tags$b(value, id = paste0(id, "-value")))
+
   }
   tagPB <- htmltools::tags$div(class = "progress-group", title,
                                total, htmltools::tags$div(class = if (!is.null(size))
-                                 paste("progress", round(size,digits = 2))
+                                 paste("progress", size)
                                  else "progress", htmltools::tags$div(id = id, style = if (percent >
                                                                                            0)
-                                   paste0("width:",round(percent, digits = 2), "%;"), style = if (display_pct)
+                                   paste0("width:",percent, "%;"), style = if (display_pct)
                                      "min-width: 2em;", class = "progress-bar", class = if (!is.null(status))
                                        paste0("progress-bar-", status), class = if (striped)
                                          "progress-bar-striped", role = "progressbar", if (display_pct)
-                                           paste0(round(percent, digits = 2), "%"))))
+                                           paste0(percent, "%"))))
 
 }
 
@@ -71,10 +69,10 @@ body <- dashboardBody(
   fluidRow(
     column(width = 12,
       box(width = NULL,solidHeader = TRUE,
-              searchInput(width = NULL,"search","Search", placeholder = "City name or adress",
+               searchInput(width = NULL,"search","Search Region", placeholder = "City or Region",
                       value = "Jena" ,
                       btnSearch = icon("search"),
-                      btnReset = icon("remove")),
+                      btnReset = icon("remove")), materialSwitch(inputId = "detail", label = "Jump to adress", status = "danger"),
           fluidRow(
             column(width = 4,
                    valueBoxOutput("weather",width = NULL)
@@ -110,8 +108,21 @@ body <- dashboardBody(
                    ),
           fluidRow(
             box(solidHeader = T,background = "black", width = NULL,
-                sliderTextInput("plan", "Routing style",
-                                choices = c("fastest","balanced","quietest")),
+                radioGroupButtons(inputId = "route_opt",
+                                  label = "Routing providers",
+                                  choices = c("cycle","GHopper","OSM"),
+                                  checkIcon = list(yes = tags$i(class = "fa fa-check-square",
+                                                                style = "color: steelblue"),
+                                                   no = tags$i(class = "fa fa-square-o",
+                                                               style = "color: steelblue"))),
+                conditionalPanel( condition = 'input.route_opt == "cycle"',
+                radioGroupButtons(inputId = "plan",
+                                  label = "Routing style",
+                                  choices = c("fastest","balanced","quietest"), status = "danger")),
+                conditionalPanel( condition = 'input.route_opt == "GHopper"',
+                                  radioGroupButtons(inputId = "graph",
+                                                    label = "Routing style",
+                                                    choices = c("foot","hike","bike", "mtb","racingbike"), status = "danger")),
                 actionButton("routing","Route"))
             )
           )
@@ -119,15 +130,16 @@ body <- dashboardBody(
           )
       ),
   fluidRow(
-      box(knobInput("pace", label = "Speed in km/h: ",
+      box(title = "Traveltime", solidHeader = T,
+          knobInput("pace", label = "Speed in km/h: ",
                 value = 5,
                 thickness = 0.3,
                 cursor = TRUE,
                 width = 150,
                 height = 150,
                 min = 2,max = 50
-  )),
-  box(tableOutput("traveltime"))
+  ),
+  tableOutput("traveltime"))
   )
 )
 
@@ -149,6 +161,7 @@ server <- function(input, output, session) {
   weatherdata <- reactiveValues(df = NULL)
   height <- reactiveValues(df = NULL)
   routed <- reactiveValues(df = NULL)
+  search <- reactiveValues(df = NULL)
   #functions
   create_lines <- function(data){
     if(!is.null(data)){
@@ -166,10 +179,8 @@ server <- function(input, output, session) {
       lines <- st_as_sf(data)
 
     }
-    numOfPoints  <-  as.numeric(st_length(lines)/ 20)
-    # if (numOfPoints > 250){
-    #   numOfPoints <- 250
-    # }
+    numOfPoints  <-  as.numeric(st_length(lines)/ 25)
+
     points <- spsample(as(lines,"Spatial"), n = numOfPoints, type = "regular")
     points <- st_as_sf(points)
     st_crs(points) <- 4326
@@ -197,11 +208,14 @@ server <- function(input, output, session) {
     points$distance <- cumsum(points$distance)
     points
     }
-  weather <- function(in_lines){
-    lines <- create_lines(in_lines)
-    mid <- st_coordinates(st_centroid(lines))
-    smp_weather <- locationforecast(lat = mid[,2],
-                                  lon = mid[,1], exact = F)
+  weather <- function(in_data){
+    if(class(in_data) == "numeric"){
+      mid <- in_data
+    }else{
+    mid <- st_coordinates(in_data[floor(nrow(in_data)/2),])
+    }
+    smp_weather <- locationforecast(lat = mid[2],
+                                  lon = mid[1], exact = F)
     return(smp_weather)
   }
   routing <- function(data){
@@ -210,11 +224,19 @@ server <- function(input, output, session) {
       if(i == nrow(data)){
         break
       }
-      tmp[[i]] <- route_cyclestreet(from = data[i,] ,to = data[i+1,] ,plan = input$plan, pat = cycle_api,
+      if(input$route_opt == "cycle"){
+      tmp[[i]] <- route_cyclestreet(from = data[i,] ,to = data[i+1,] ,
+                                    plan = input$plan, pat = cycle_api,
                         base_url = "https://www.cyclestreets.net")
-      if(is.null(tmp[[i]])){
+      }
+      else if(input$route_opt == "OSM"){
         print("using standard")
         tmp[[i]] <- route_osrm(from = data[i,], to = data[i+1,])
+      }
+      else if(input$route_opt == "GHopper"){
+        print("using standard")
+        tmp[[i]] <- route_graphhopper(from = data[i,], to = data[i+1,], pat = graph_hopper,
+                                      vehicle = input$graph, silent = T ,base_url = "https://graphhopper.com" )
       }
     }
     route <- do.call(rbind,tmp)
@@ -222,6 +244,9 @@ server <- function(input, output, session) {
   }
   search_plc <- function(instring){
     xy <- geo_code(instring)
+    # if(length(xy) == 0){
+    #   xy <- geo_code()
+    # }
   }
   height_diff <- function(elev_points, col){
     st_geometry(elev_points) <- NULL
@@ -257,14 +282,11 @@ server <- function(input, output, session) {
         pKm <- route_len + up/100 + down/150
         pKm <- data.frame(pKm = pKm, up = up, down = down, flat = route_len)
       } else {
-        print(data_p[i,col] - data_p[i+1,col])
       if(data_p[i,col] - data_p[i+1,col] < 0){
         up_dist <- abs(data_p[i,col] - data_p[i+1,col])
-        #print(up_dist)
         up <- up + up_dist
       } else {
         down_dist <- abs(data_p[i,col] - data_p[i+1,col])
-        #print(down_dist)
         down <- down + down_dist
         }
     }
@@ -287,14 +309,23 @@ server <- function(input, output, session) {
 
 
   #outputs
+
+  #Base map functions
+  observe({
+    search$df <- search_plc(input$search)
+    weatherdata$df <- weather(search$df)
+
+  })
+
   output$leafmap <- renderLeaflet({
     leaflet() %>%
       addTiles() %>%
       addDrawToolbar(editOptions = editToolbarOptions(remove = F),singleFeature = T,
                     circleOptions = F,polygonOptions = F,rectangleOptions = F,
-                    markerOptions = F) %>% addProviderTiles(providers$HikeBike) %>%
-      setView(lng = search_plc(input$search)[1] , lat = search_plc(input$search)[2],
-              zoom = 14)
+                    markerOptions = F) %>% addProviderTiles(providers$HikeBike.HikeBike) %>%
+      setView(lng =  search$df[1] , lat = search$df[2],
+              zoom =if(input$detail){19} else{12}) %>%
+      addCircles(lng = if(input$detail){search$df[1]}else{0}, lat = if(input$detail){search$df[2]}else{0})
   })
   observe({
     if(!is.null(tmp_route$df)){
@@ -314,22 +345,14 @@ server <- function(input, output, session) {
                    color = "red",radius = 8,fill = "red",layerId = "p")
     }
   })
-
-  # observe({
-  #   if(!is.null(eventdata$df)){
-  #     leafletProxy("leafmap", data = eventdata$df) %>%
-  #       addCircles(lng = eventdata$df[,3],lat = eventdata$df[,4] ,color = "red")
-  #   } else {
-  #     leafletProxy("leafmap", data = c()) %>%
-  #       clearShapes()
-  #   }
-  # })
   observeEvent(input$routing, {
     print("route!")
     routed$df <- TRUE
     tmp_route$df <- routing(values$df)
     elevPoints_route$df <- spatial(tmp_route$df)
     height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
+    weatherdata$df <- weather(elevPoints_route$df)
+
 
     pKm$df <- performance_km(elevPoints_route$df,col="elev")
     pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
@@ -342,8 +365,8 @@ server <- function(input, output, session) {
 
   # New Feature
   observeEvent(input$leafmap_draw_new_feature,{
-    print("New Feature")
-    print(input$leafmap_draw_new_feature)
+    # print("New Feature")
+    # print(input$leafmap_draw_new_feature)
     tmp_route$df <- NULL
     elevPoints_route$df <- NULL
     elevPoints$df <- NULL
@@ -358,14 +381,14 @@ server <- function(input, output, session) {
 
   # Edited Features
   observeEvent(input$leafmap_draw_edited_features,{
-    print("Edited Features")
-    print(input$leafmap_draw_edited_features)
+    # print("Edited Features")
+    # print(input$leafmap_draw_edited_features)
   })
   observeEvent(input$leafmap_draw_deleted_features,{
-    print("Deleted Features")
-    print(input$leafmap_draw_deleted_features)
+    # print("Deleted Features")
+    # print(input$leafmap_draw_deleted_features)
     if (!is.null(input$leafmap_draw_deleted_features$type)){
-      print("test")
+      #print("test")
       values$df <- NULL
     }
   })
@@ -373,9 +396,9 @@ server <- function(input, output, session) {
   # We also listen for draw_all_features which is called anytime
   # features are created/edited/deleted from the map
   observeEvent(input$leafmap_draw_all_features,{
-    print("All Features")
-    print(input$leafmap_draw_all_features)
-    print(length(input$leafmap_draw_all_features$features[[1]]$geometry$coordinates))
+    # print("All Features")
+    # print(input$leafmap_draw_all_features)
+    # print(length(input$leafmap_draw_all_features$features[[1]]$geometry$coordinates))
     if (!is.null(input$leafmap_draw_new_feature$type)){
       x <- c()
       y <- c()
@@ -384,8 +407,8 @@ server <- function(input, output, session) {
         y[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[1]]
     }
     values$df <- data.frame(x = y , y = x) #mixed it up
-    weatherdata$df <- weather(values$df)
     elevPoints$df <- spatial(values$df)
+    weatherdata$df <- weather(elevPoints$df)
     height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
     pKm$df <- performance_km(elevPoints$df,col="elev")
     pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
@@ -393,17 +416,14 @@ server <- function(input, output, session) {
     updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
     updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
     updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
-    print("values")
-    print(values$df)
+    # print("values")
+    # print(values$df)
     if(!is.null(tmp_route$df)){
       tmp_route$df <- NULL
     }
     }
   })
-  observeEvent(input$plotly_hover,{
-    print("New  plotly")
-    print(input$plotly_hover)
-  })
+
 # weather
   output$temp <- renderValueBox ({
     if(is.null(weatherdata$df)){
@@ -419,7 +439,7 @@ server <- function(input, output, session) {
         color = "teal"
       )
     }
-    if(weatherdata$df[4,6] > 25){
+    else if(weatherdata$df[4,6] > 25){
       valueBox(
         subtitle = "min/max - Hot",value = mtemp,icon = icon("thermometer-three-quarters"),
         color = "red"
@@ -478,23 +498,6 @@ server <- function(input, output, session) {
         color = "light-blue", value = weatherdata$df[4,7]
       )
     }
-    else if(weatherdata$df[4,7] %in% c( "SleetSun",
-                                       "SnowSun", "Sleet",
-                                       "Snow",
-                                       "SnowThunder", "SleetSunThunder",
-                                       "SnowSunThunder",  "LightSleetSun",
-                                       "HeavySleetSun",
-                                       "LightSnowSun",
-                                       "HeavysnowSun",
-                                       "LightSleet",
-                                       "HeavySleet",
-                                       "LightSnow",
-                                       "HeavySnow")){
-      valueBox(
-        subtitle = "Weather condition", icon =icon("asterisk", lib = "glyphicon"),
-        color = "teal", value =weatherdata$df[4,7]
-      )
-    }
     else if(weatherdata$df[4,7] %in% c("Fog")){
       valueBox(
         subtitle = "Weather condition", icon = icon("align-justify "),
@@ -524,6 +527,12 @@ server <- function(input, output, session) {
         color = "purple", value = weatherdata$df[4,7]
       )
     }
+      else {
+        valueBox(
+          subtitle = "Weather condition", icon =icon("asterisk", lib = "glyphicon"),
+          color = "teal", value =weatherdata$df[4,7]
+        )
+      }
     }
   })
   output$weather2 <- renderTable({
@@ -559,8 +568,8 @@ server <- function(input, output, session) {
       elevPoints$df$y <- st_coordinates(elevPoints$df)[,2]
     p <- plot_ly(elevPoints$df, x = ~x, y =  ~y, z = ~elev,
                  type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
-                 text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
-      add_trace(hoverinfo = 'none')
+                 text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text",visible = TRUE)
+
     }
   })
   output$plot_route <- renderPlotly({
