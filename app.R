@@ -75,14 +75,20 @@ body <- dashboardBody(
                       value = "Jena" ,
                       btnSearch = icon("search"),
                       btnReset = icon("remove")),
-          column(width = 9,
-                 leafletOutput("leafmap",height = 900)),
-          column(width = 3,
-                 box(width= NULL,collapsible = T,solidHeader = T,
-                 valueBoxOutput("weather",width = NULL),
-                 valueBoxOutput("percip", width = NULL),
-                 valueBoxOutput("temp", width = NULL)
+          fluidRow(
+            column(width = 4,
+                   valueBoxOutput("weather",width = NULL)
+            ),
+            column(width = 4,
+              valueBoxOutput("percip", width = NULL)
+            ),
+            column(width = 4,
+              valueBoxOutput("temp", width = NULL)
+            )
           ),
+          column(width = 7,
+                 leafletOutput("leafmap",height = 700)),
+          column(width = 5,
           fluidRow(
                    tabBox(width = NULL,
                           tabPanel(icon = icon("tasks"),title = "Trip data",
@@ -305,7 +311,7 @@ server <- function(input, output, session) {
       leafletProxy("leafmap", data = eventdata) %>%
         removeShape("p") %>%
         addCircles(lng = eventdata[,3],lat = eventdata[,4] ,
-                   color = "red",radius = 5,fill = "red",layerId = "p")
+                   color = "red",radius = 8,fill = "red",layerId = "p")
     }
   })
 
@@ -552,7 +558,9 @@ server <- function(input, output, session) {
       elevPoints$df$x <- st_coordinates(elevPoints$df)[,1]
       elevPoints$df$y <- st_coordinates(elevPoints$df)[,2]
     p <- plot_ly(elevPoints$df, x = ~x, y =  ~y, z = ~elev,
-                 type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed") %>% add_lines()
+                 type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
+                 text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
+      add_trace(hoverinfo = 'none')
     }
   })
   output$plot_route <- renderPlotly({
@@ -564,7 +572,9 @@ server <- function(input, output, session) {
     elevPoints_route$df$x <- st_coordinates(elevPoints_route$df)[,1]
     elevPoints_route$df$y <- st_coordinates(elevPoints_route$df)[,2]
     p <- plot_ly(elevPoints_route$df, x = ~x, y = ~y, z = ~elev,
-               type = 'scatter3d', mode = 'lines',color = ~elev, plot_bgcolor = 'black', source = "routed")
+               type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
+               text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
+      add_trace(hoverinfo = 'none')
   }
   })
   output$plot2 <- renderPlot({
