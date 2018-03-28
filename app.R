@@ -160,10 +160,10 @@ server <- function(input, output, session) {
       lines <- st_as_sf(data)
 
     }
-    numOfPoints  <-  as.numeric(st_length(lines)/ 100)
-    if (numOfPoints > 250){
-      numOfPoints <- 250
-    }
+    numOfPoints  <-  as.numeric(st_length(lines)/ 20)
+    # if (numOfPoints > 250){
+    #   numOfPoints <- 250
+    # }
     points <- spsample(as(lines,"Spatial"), n = numOfPoints, type = "regular")
     points <- st_as_sf(points)
     st_crs(points) <- 4326
@@ -552,7 +552,7 @@ server <- function(input, output, session) {
       elevPoints$df$x <- st_coordinates(elevPoints$df)[,1]
       elevPoints$df$y <- st_coordinates(elevPoints$df)[,2]
     p <- plot_ly(elevPoints$df, x = ~x, y =  ~y, z = ~elev,
-                 type = 'scatter3d', mode = 'lines', source = "routed")
+                 type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed") %>% add_lines()
     }
   })
   output$plot_route <- renderPlotly({
@@ -564,7 +564,7 @@ server <- function(input, output, session) {
     elevPoints_route$df$x <- st_coordinates(elevPoints_route$df)[,1]
     elevPoints_route$df$y <- st_coordinates(elevPoints_route$df)[,2]
     p <- plot_ly(elevPoints_route$df, x = ~x, y = ~y, z = ~elev,
-               type = 'scatter3d', mode = 'lines', source = "routed")
+               type = 'scatter3d', mode = 'lines',color = ~elev, plot_bgcolor = 'black', source = "routed")
   }
   })
   output$plot2 <- renderPlot({
