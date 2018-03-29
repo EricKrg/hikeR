@@ -1,0 +1,36 @@
+hikeR - Help page -
+
+Reminder: The app is still under development, so it might crash or sometimes not behave as expected. Please report bugs to: eric.krueger@uni-jena.de.
+
+The core features of hikeR are:
+
+- DRAW
+your next trip onto the map - use the button under the zoom-control to activate drawing and finish your sketch with a double-click.
+
+- ROUTING
+get routing between multiple input locations, i.e. get a routing based on your sketched track from the DRAW-feature. Draw the airline distance between start and end on the map and click on ROUTE. You can choose between different routing providers (CycleStreets.net, graph hopper and OSM), CycleStreets.net is the best choice for a cycle trip, while graph hopper offers the best routing for a hiking trip.
+
+- TRIP-DATA
+displays the horizontal distance of your trip as well as the performance kilometer. What is a performance/power/effective kilometer? A performance kilometer takes the up-slope and down-slope difference into account, to return a more realistic measure of the trip length and physical effort then the flat distance. Furthermore the trip data features the total height-difference, up-slope distance and down slope distance.
+
+- TRAVEL-TIME
+based on walking/cycling speed and performance kilometer.
+
+- 3D HEIGHT DIAGRAM
+you can access a 3D height diagram of your trip by clicking on AIRLINE (for the diagram of your drawn trip) or on ROUTE (for the diagram of the routing) beside the TRIP DATA panel. The 3D diagrams are interactive, you can drag them and hover over to see the location on the map as well as the exact elevation of this position.
+
+- GPX IM/EXPORT planned feature
+
+- SEARCH EXSISTING ROUTES planned feature
+
+- IN REACH display reachable places to eat or sleep, planned feature
+
+- the app retrieves elevation and weather information automatically
+
+
+refresh the app to return to the help page
+
+thanks to CycleStreets.net (www.cyclestreets.net/) for the provided API-Key
+
+
+repo: github.com/EricKrg/hikeR

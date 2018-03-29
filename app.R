@@ -24,9 +24,12 @@ require(shinyWidgets)
 require(formattable)
 require(mapview)
 
+
+# constant like vars.
 apikey <- "AIzaSyAB6DJYmiY-82HLSgo0CLCDeZ9h2p6l9xY"
 cycle_api <- "8e9f2ec7f09a1ff4"
 graph_hopper <- "170ca04c-aef5-4efc-9691-ec8325d934ef"
+help <- TRUE
 #style funs
 progressBar2 <- function (id, value, total = NULL, display_pct = FALSE, size = NULL,
                           status = NULL, striped = FALSE, title = NULL)
@@ -64,15 +67,15 @@ progressBar2 <- function (id, value, total = NULL, display_pct = FALSE, size = N
 # Define UI for application that draws a histogram
 body <- dashboardBody(
   fluidRow(
-    box(title ="hikeR",solidHeader = T,background = "black",width = 12)
-  ),
+    box(title ="hikeR",solidHeader = T,background = "black",width = 12)),
   fluidRow(
     column(width = 12,
       box(width = NULL,solidHeader = TRUE,
                searchInput(width = NULL,"search","Search Region", placeholder = "City or Region",
                       value = "Jena" ,
                       btnSearch = icon("search"),
-                      btnReset = icon("remove")), materialSwitch(inputId = "detail", label = "Jump to adress", status = "danger"),
+                      btnReset = icon("remove")),
+          materialSwitch(inputId = "detail", label = "Jump to street level", status = "danger"),
           fluidRow(
             column(width = 4,
                    valueBoxOutput("weather",width = NULL)
@@ -107,6 +110,7 @@ body <- dashboardBody(
                           )
                    ),
           fluidRow(
+            column(width = 5,
             box(solidHeader = T,background = "black", width = NULL,
                 radioGroupButtons(inputId = "route_opt",
                                   label = "Routing providers",
@@ -123,24 +127,29 @@ body <- dashboardBody(
                                   radioGroupButtons(inputId = "graph",
                                                     label = "Routing style",
                                                     choices = c("foot","hike","bike", "mtb","racingbike"), status = "danger")),
-                actionButton("routing","Route"))
+               actionButton("routing","Route")
+                )),
+            column(width = 5,
+                   box(width = NULL,background = "black",title = "Traveltime", solidHeader = T,
+                       column(width = 5,
+                       knobInput("pace", label = "Speed in km/h: ",
+                                 value = 5,
+                                 thickness = 0.3,
+                                 cursor = TRUE,
+                                 width = "70%",
+                                 height = "70%",
+                                 min = 2,max = 50,
+                                 fgColor = "red" ,bgColor = "white"
+                       )),
+                       column(width = 5,
+                       tableOutput("traveltime")))
+            )
             )
           )
           )
           )
-      ),
-  fluidRow(
-      box(title = "Traveltime", solidHeader = T,
-          knobInput("pace", label = "Speed in km/h: ",
-                value = 5,
-                thickness = 0.3,
-                cursor = TRUE,
-                width = 150,
-                height = 150,
-                min = 2,max = 50
-  ),
-  tableOutput("traveltime"))
-  )
+      )
+
 )
 
 ui <- dashboardPage(
@@ -162,6 +171,7 @@ server <- function(input, output, session) {
   height <- reactiveValues(df = NULL)
   routed <- reactiveValues(df = NULL)
   search <- reactiveValues(df = NULL)
+  search2 <- reactiveValues(df = NULL)
   #functions
   create_lines <- function(data){
     if(!is.null(data)){
@@ -309,10 +319,24 @@ server <- function(input, output, session) {
 
 
   #outputs
+  observeEvent(help, {
+    sendSweetAlert(
+      session = session,
+      title = "Information",
+      text = includeText("./test.txt"),
+      type = "info"
+    )
+  }) #help page
 
   #Base map functions
-  observe({
-    search$df <- search_plc(input$search)
+  observe({             # search input observer
+    print(input$search)
+    if(nchar(input$search)==0){
+      search$df <- search2$df
+    } else {
+      search$df <- search_plc(input$search)
+      search2$df <- search$df
+    }
     weatherdata$df <- weather(search$df)
 
   })
@@ -330,7 +354,11 @@ server <- function(input, output, session) {
   observe({
     if(!is.null(tmp_route$df)){
     leafletProxy("leafmap", data = tmp_route$df) %>%
-      clearShapes() %>% addPolylines()
+      clearShapes() %>% addPolylines(color = "#0eea9d",
+                                     highlightOptions = highlightOptions(bringToFront = T,
+                                                                         stroke =T,
+                                                                         weight = 5,
+                                                                         color =  "red"))
     } else {
       leafletProxy("leafmap", data = c()) %>%
         clearShapes()
