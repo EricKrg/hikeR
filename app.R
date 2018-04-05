@@ -184,7 +184,7 @@ server <- function(input, output, session) {
   search <- reactiveValues(df = NULL)
   search2 <- reactiveValues(df = NULL)
 
-  #ui value
+  #ui value dynamic panels for all waypoints
   output$waypoints_panel <- renderUI({
     out <- list()
     for(i in 1:input$waypoints){
@@ -352,10 +352,12 @@ server <- function(input, output, session) {
   }) #help page
 
   #Base map functions
-  observe({             # search input observer
+
+  # search observer
+  observe({
     print(input$search)
     if(nchar(input$search)==0){
-      search$df <- search2$df
+      search$df <- search2$df # stops app from crashing when clearing prev. search
     } else {
       search$df <- search_plc(input$search)
       search2$df <- search$df
@@ -364,6 +366,7 @@ server <- function(input, output, session) {
 
   })
 
+  # base leaflet with search function
   output$leafmap <- renderLeaflet({
     leaflet() %>%
       addTiles() %>%
@@ -374,10 +377,12 @@ server <- function(input, output, session) {
               zoom =if(input$detail){19} else{12}) %>%
       addCircles(lng = if(input$detail){search$df[1]}else{0}, lat = if(input$detail){search$df[2]}else{0})
   })
+
+  # map the routed trip
   observe({
     if(!is.null(tmp_route$df)){
     leafletProxy("leafmap", data = tmp_route$df) %>%
-      clearShapes() %>% addPolylines(color = "#0eea9d",
+      clearShapes() %>% addPolylines(color = "Black",
                                      highlightOptions = highlightOptions(bringToFront = T,
                                                                          stroke =T,
                                                                          weight = 5,
@@ -387,6 +392,7 @@ server <- function(input, output, session) {
         clearShapes()
     }
   })
+  # over over height diagram --> map output
   observe({
     eventdata <- event_data("plotly_hover", source = "routed")
     if(!is.null(eventdata)){
@@ -396,15 +402,41 @@ server <- function(input, output, session) {
                    color = "red",radius = 8,fill = "red",layerId = "p")
     }
   })
+  # map events end here --------------
+
+  # input data starts here -----------
+
+
   observeEvent(input$routing, {
     print("route!")
     routed$df <- TRUE
     if(!is.null(input$string_route) && input$string_route){
       print("string route")
       tmp_route$df <- NULL
+      if(input$more){
+        tmp_route$df <- NULL
+        wayp_list <- data.frame(name = paste0("to",1:input$waypoints))
+        print(wayp_list)
+        j = 1
+        tmp <- list()
+        for(i in wayp_list$name){
+          print(i)
+          tmp[[j]] <- geo_code(input[[i]])
+          j <- j + 1
+        }
+        wayp <- do.call(rbind,tmp)
+        from <- geo_code(input$from)
+        to <- geo_code(input$to)
+        all <- rbind(from, wayp)
+        all <- rbind(all, to)
+        print(all)
+        tmp_route$df <- routing(all)
+      } else {
+        print("a to b")
       from <- geo_code(input$from)
       to <- geo_code(input$to)
       tmp_route$df <- routing(rbind(from,to))
+      }
 
     } else {
       print("draw route")
@@ -424,6 +456,7 @@ server <- function(input, output, session) {
     updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
     updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
     updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
+    gc()
 
   })
 
