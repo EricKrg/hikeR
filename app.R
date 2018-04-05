@@ -21,7 +21,6 @@ require(plotly)
 require(stplanr)
 require(weatherr)
 require(shinyWidgets)
-require(formattable)
 require(mapview)
 
 
@@ -110,27 +109,40 @@ body <- dashboardBody(
                           )
                    ),
           fluidRow(
-            column(width = 5,
-            box(solidHeader = T,background = "black", width = NULL,
-                radioGroupButtons(inputId = "route_opt",
+            column(width = 12,
+            box(solidHeader = T,background = "black", width = NULL,title = "Routing",
+                materialSwitch(inputId = "string_route", label = "Route by adress", status = "danger"),
+                conditionalPanel(condition = "input.string_route",
+                                 materialSwitch(inputId = "more", label = "More then two Adresses", status = "danger"),
+                                 conditionalPanel(condition = "input.more",
+                                 sliderInput(inputId = "waypoints",label = "Nr. of Waypoints",min = 1,max = 15,value = 1)),
+                                 textInput(inputId = "from",label = "from A",placeholder = "Adress"),
+                                 textInput(inputId = "to",label = "to B",placeholder = "Adress"),
+                                 conditionalPanel(condition = "input.more",
+                                                  uiOutput("waypoints_panel")
+                                 )),
+                conditionalPanel(condition ="input.leafmap_draw_new_feature || input.string_route",
+                                 radioGroupButtons(inputId = "route_opt",
                                   label = "Routing providers",
                                   choices = c("cycle","GHopper","OSM"),
                                   checkIcon = list(yes = tags$i(class = "fa fa-check-square",
                                                                 style = "color: steelblue"),
                                                    no = tags$i(class = "fa fa-square-o",
                                                                style = "color: steelblue"))),
-                conditionalPanel( condition = 'input.route_opt == "cycle"',
+                conditionalPanel(condition = 'input.route_opt == "cycle"',
                 radioGroupButtons(inputId = "plan",
                                   label = "Routing style",
-                                  choices = c("fastest","balanced","quietest"), status = "danger")),
+                                  choices = c("fastest","balanced","quietest"),
+                                  status = "danger")),
                 conditionalPanel( condition = 'input.route_opt == "GHopper"',
                                   radioGroupButtons(inputId = "graph",
                                                     label = "Routing style",
-                                                    choices = c("foot","hike","bike", "mtb","racingbike"), status = "danger")),
-               actionButton("routing","Route")
-                )),
-            column(width = 5,
-                   box(width = NULL,background = "black",title = "Traveltime", solidHeader = T,
+                                                    choices = c("foot","hike","bike", "mtb","racingbike"),
+                                                    status = "danger")),
+               actionButton("routing","Route"))
+                ))),
+            fluidRow(
+                   box(width = 12,background = "black",title = "Traveltime", solidHeader = T,
                        column(width = 5,
                        knobInput("pace", label = "Speed in km/h: ",
                                  value = 5,
@@ -150,7 +162,6 @@ body <- dashboardBody(
           )
       )
 
-)
 
 ui <- dashboardPage(
                      dashboardHeader(disable = T),
@@ -172,6 +183,16 @@ server <- function(input, output, session) {
   routed <- reactiveValues(df = NULL)
   search <- reactiveValues(df = NULL)
   search2 <- reactiveValues(df = NULL)
+
+  #ui value
+  output$waypoints_panel <- renderUI({
+    out <- list()
+    for(i in 1:input$waypoints){
+      out[[i]] <- textInput(inputId = paste0("to",i),label = "waypoints",placeholder = "Adress")
+    }
+    return(div(out))
+  })  #render the ui dynamically
+
   #functions
   create_lines <- function(data){
     if(!is.null(data)){
@@ -184,15 +205,17 @@ server <- function(input, output, session) {
   }
   spatial <- function(data){
     if(class(data)[1] != "SpatialLinesDataFrame"){ #filter results form routing
+      print("normal lines")
       lines <- create_lines(data)
     } else {
       lines <- st_as_sf(data)
 
     }
-    numOfPoints  <-  as.numeric(st_length(lines)/ 25)
-
+    print("sampling")
+    numOfPoints  <-  as.numeric(SpatialLinesLengths(as(lines,"Spatial"))/0.025)
     points <- spsample(as(lines,"Spatial"), n = numOfPoints, type = "regular")
     points <- st_as_sf(points)
+    print("samples done")
     st_crs(points) <- 4326
     start <- st_sf(geometry = st_sfc(st_point(st_coordinates(lines)[1,1:2])),crs = 4326)
     points <- rbind(start, points)
@@ -280,7 +303,7 @@ server <- function(input, output, session) {
 
     if(routed$df){
 
-    dist <- as.numeric(st_length(st_as_sf(tmp_route$df)))/1000
+    dist <- as.numeric(SpatialLinesLengths(tmp_route$df))
 
     } else {
     dist <- data_p[nrow(data_p),1]
@@ -376,12 +399,25 @@ server <- function(input, output, session) {
   observeEvent(input$routing, {
     print("route!")
     routed$df <- TRUE
-    tmp_route$df <- routing(values$df)
+    if(!is.null(input$string_route) && input$string_route){
+      print("string route")
+      tmp_route$df <- NULL
+      from <- geo_code(input$from)
+      to <- geo_code(input$to)
+      tmp_route$df <- routing(rbind(from,to))
+
+    } else {
+      print("draw route")
+      tmp_route$df <- routing(values$df)
+    }
+    print("elev  route")
     elevPoints_route$df <- spatial(tmp_route$df)
+    print("height route")
     height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
+    print("route weather")
     weatherdata$df <- weather(elevPoints_route$df)
 
-
+    print("pkm")
     pKm$df <- performance_km(elevPoints_route$df,col="elev")
     pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
     updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
@@ -393,7 +429,7 @@ server <- function(input, output, session) {
 
   # New Feature
   observeEvent(input$leafmap_draw_new_feature,{
-    # print("New Feature")
+    print("New Feature")
     # print(input$leafmap_draw_new_feature)
     tmp_route$df <- NULL
     elevPoints_route$df <- NULL
@@ -430,22 +466,26 @@ server <- function(input, output, session) {
     if (!is.null(input$leafmap_draw_new_feature$type)){
       x <- c()
       y <- c()
+      print("create new feature")
       for (i in 1:length(input$leafmap_draw_all_features$features[[1]]$geometry$coordinates)){
         x[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[2]]
         y[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[1]]
     }
     values$df <- data.frame(x = y , y = x) #mixed it up
+    print("values df created")
     elevPoints$df <- spatial(values$df)
+    print("weather df")
     weatherdata$df <- weather(elevPoints$df)
+    print("airline height")
     height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
+
+    print("airline pkm")
     pKm$df <- performance_km(elevPoints$df,col="elev")
     pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
     updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
     updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
     updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
     updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
-    # print("values")
-    # print(values$df)
     if(!is.null(tmp_route$df)){
       tmp_route$df <- NULL
     }
