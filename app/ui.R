@@ -25,10 +25,8 @@ require(mapview)
 
 
 # constant like vars.
-apikey <- "AIzaSyAB6DJYmiY-82HLSgo0CLCDeZ9h2p6l9xY"
-cycle_api <- "8e9f2ec7f09a1ff4"
-graph_hopper <- "170ca04c-aef5-4efc-9691-ec8325d934ef"
 help <- TRUE
+height_stats <- FALSE
 #style funs
 progressBar2 <- function (id, value, total = NULL, display_pct = FALSE, size = NULL,
                           status = NULL, striped = FALSE, title = NULL)
@@ -69,7 +67,8 @@ dashboardPage(dashboardHeader(disable = T),
                 dashboardSidebar(disable = T),
   dashboardBody(
   fluidRow(
-    box(title ="hikeR",solidHeader = T,background = "black",width = 12)),
+    #box(title ="hikeR",solidHeader = T,background = "black",width = 12)),
+    infoBoxOutput("main",width = 10), infoBoxOutput("git",width = 2)),
   fluidRow(
     column(width = 12,
            box(width = NULL,solidHeader = TRUE,
@@ -95,7 +94,6 @@ dashboardPage(dashboardHeader(disable = T),
                       fluidRow(
                         tabBox(width = NULL,
                                tabPanel(icon = icon("tasks"),title = "Trip data",
-                                        tableOutput("height"),
                                         progressBar2(title = "performance Kilometer (km)" ,id = "pKm",value = 0, status = "danger",
                                                      display_pct = TRUE),
                                         progressBar2(title = "horizontal distance (km)", id = "flat",value = 0, status = "info",
@@ -111,6 +109,9 @@ dashboardPage(dashboardHeader(disable = T),
                                         tableOutput("data"))
                         )
                       ),
+                      fluidRow(
+                        box(collapsible = T,solidHeader = T,width = 12, background = "black",
+                            valueBoxOutput("max"), valueBoxOutput("min"), valueBoxOutput("heightbox"))),
                       fluidRow(
                         column(width = 12,
                                box(solidHeader = T,background = "black", width = NULL,title = "Routing",

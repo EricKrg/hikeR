@@ -39,6 +39,18 @@ server <- function(input, output, session) {
       return(lines)
     }
   }
+  distance <- function(point_a, point_b, unit){
+    lat = (point_a[,2] + point_b[,2]) / 2 * 0.01745
+    dx = 111.3 * cos(lat) * (point_a[,1] - point_b[,1])
+    dy = 111.3 * (point_a[,2] - point_b[,2])
+    distance <-  sqrt((dx * dx) + (dy * dy))
+    if(unit == "km"){
+      return(distance/1000)
+    }
+    else if (unit == "m"){
+      return(distance)
+    }
+  }
   spatial <- function(data){
     if(class(data)[1] != "SpatialLinesDataFrame"){ #filter results form routing
       print("normal lines")
@@ -48,7 +60,14 @@ server <- function(input, output, session) {
 
     }
     print("sampling")
-    numOfPoints  <-  as.numeric(SpatialLinesLengths(as(lines,"Spatial"))/0.025)
+    trip_length <- SpatialLinesLengths(as(lines,"Spatial"))
+    if(trip_length > 10){
+      numOfPoints  <-  as.numeric(trip_length/0.075)
+    } else if(trip_length < 1) {
+      numOfPoints <- 50
+    } else {
+      numOfPoints  <-  as.numeric(trip_length/0.025)
+    }
     points <- spsample(as(lines,"Spatial"), n = numOfPoints, type = "regular")
     points <- st_as_sf(points)
     print("samples done")
@@ -69,8 +88,9 @@ server <- function(input, output, session) {
         break
       } else {
         j <- i +1
-        tmp <- st_length(st_linestring(st_coordinates(points[i:j,])))
-        points$distance[j] <- tmp*100
+        tmp <- distance(point_a = xy[i,] ,point_b = xy[j,], unit = "m")
+        #tmp <- st_length(st_linestring(st_coordinates(points[i:j,])))
+        points$distance[j] <- tmp
       }
     }
     points$elev <- t$elevation
@@ -343,11 +363,8 @@ server <- function(input, output, session) {
       values$df <- data.frame(x = y , y = x) #mixed it up
       print("values df created")
       elevPoints$df <- spatial(values$df)
-      print("weather df")
-      weatherdata$df <- weather(elevPoints$df)
       print("airline height")
       height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
-
       print("airline pkm")
       pKm$df <- performance_km(elevPoints$df,col="elev")
       pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
@@ -355,6 +372,8 @@ server <- function(input, output, session) {
       updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
       updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
       updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
+      print("weather df")
+      weatherdata$df <- weather(elevPoints$df)
       if(!is.null(tmp_route$df)){
         tmp_route$df <- NULL
       }
@@ -480,18 +499,52 @@ server <- function(input, output, session) {
   output$data <- renderTable({
     values$df
   })
-  output$height <- renderTable({
-    if(!is.null(height$df) & !is.null(pKm$df)){
-
-      # height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
-      all <- data.frame(distance= pKm$df[,4], height_diff = height$df)
-    }
-    else if(!is.null(height$df) & is.null(pKm$df)){
-      all <- data.frame(distance= 0, height_diff = height$df)
+  # output$height <- renderTable({
+  #   if(!is.null(height$df) & !is.null(pKm$df)){
+  #
+  #     # height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
+  #     all <- data.frame(distance= pKm$df[,4], height_diff = height$df)
+  #   }
+  #   else if(!is.null(height$df) & is.null(pKm$df)){
+  #     all <- data.frame(distance= 0, height_diff = height$df)
+  #   } else {
+  #     all <- data.frame(distance= 0, height_diff = 0)
+  #   }
+  #   return(all)
+  # })
+  output$heightbox <- renderValueBox ({
+    if(!is.null(height$df)){
+      print(height$df)
+      height_diff = floor(as.numeric(height$df[1]))
     } else {
-      all <- data.frame(distance= 0, height_diff = 0)
+      height_diff = 0
     }
-    return(all)
+    valueBox(subtitle = "height difference", icon =icon("flag"),
+             color = "black", value =paste0(height_diff, "m"))
+
+  })
+  output$max <- renderValueBox ({
+    if(!is.null(elevPoints$df)){
+      elev <- elevPoints$df
+      st_geometry(elev) = NULL
+      elev <- floor(max(elev[,2]))
+    } else {
+      elev = 0
+    }
+    valueBox(subtitle = "Max. height", icon =icon("flag"),
+             color = "black", value =paste0(elev, "m"))
+
+  })
+  output$min <- renderValueBox ({
+    if(!is.null(elevPoints$df)){
+      elev <- elevPoints$df
+      st_geometry(elev) = NULL
+      elev <- floor(min(elev[,2]))
+    } else {
+      elev = 0
+    }
+    valueBox(subtitle = "Min. height", icon =icon("flag"),
+             color = "black", value =paste0(elev, "m"))
   })
 
   output$traveltime <- renderTable({
@@ -508,7 +561,7 @@ server <- function(input, output, session) {
                    text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text",visible = TRUE)
 
     }
-  })
+  }) #airline
   output$plot_route <- renderPlotly({
     if(is.null(tmp_route$df)){
       ggplot()
@@ -522,7 +575,7 @@ server <- function(input, output, session) {
                    text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
         add_trace(hoverinfo = 'none')
     }
-  })
+  }) #routed
   output$plot2 <- renderPlot({
     if(is.null(values$df)){
       ggplot()
@@ -530,6 +583,15 @@ server <- function(input, output, session) {
       spatial(values$df) %>%
         ggplot(aes(x = distance, y = elev)) + geom_area(alpha = 0.5,fill = "red") + theme_minimal()
     }
+  })
+  # header boxes
+  output$main <- renderInfoBox({
+    infoBox(value = "hikeR",title = "Plan your trip with",icon = icon("pagelines"),fill = T,
+            color = "olive")
+  })
+  output$git <- renderInfoBox({
+    infoBox(value = "click me",title = "get the code",icon = icon("github"),fill = F,
+            href = "https://github.com/EricKrg/hikeR",color = "black")
   })
 }
 
