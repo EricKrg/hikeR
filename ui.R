@@ -22,6 +22,7 @@ require(stplanr)
 require(weatherr)
 require(shinyWidgets)
 require(mapview)
+require(rgdal)
 
 
 # constant like vars.
@@ -103,8 +104,8 @@ dashboardPage(dashboardHeader(disable = T),
                                         progressBar2(title = "vertical down (m)", id = "down",value = 0, status = "info",
                                                      display_pct = TRUE)
                                ),
-                               tabPanel(icon = icon("caret-up"),"Airline",plotlyOutput("plot",width = NULL)),
-                               tabPanel(icon = icon("caret-up"),"Route", plotlyOutput("plot_route")),
+                               tabPanel(icon = icon("caret-up"),"Airline",plotly::plotlyOutput("plot",width = NULL)),
+                               tabPanel(icon = icon("caret-up"),"Route", plotly::plotlyOutput("plot_route")),
                                tabPanel(title = "Trip coords.",icon = icon("map-marker"),
                                         tableOutput("data"))
                         )
@@ -115,7 +116,7 @@ dashboardPage(dashboardHeader(disable = T),
                       fluidRow(
                         column(width = 12,
                                box(solidHeader = T,background = "black", width = NULL,title = "Routing",
-                                   materialSwitch(inputId = "string_route", label = "Route by adress", status = "danger"),
+                                   column(width = 8, materialSwitch(inputId = "string_route", label = "Route by adress", status = "danger"),
                                    conditionalPanel(condition = "input.string_route",
                                                     materialSwitch(inputId = "more", label = "More then two Adresses", status = "danger"),
                                                     conditionalPanel(condition = "input.more",
@@ -143,8 +144,17 @@ dashboardPage(dashboardHeader(disable = T),
                                                                                         label = "Routing style",
                                                                                         choices = c("foot","hike","bike", "mtb","racingbike"),
                                                                                         status = "danger")),
-                                                    actionButton("routing","Route"))
-                               ))),
+                                                    actionButton("routing","Route"))),
+                                   column(width = 4,
+                                          uiOutput("download")
+                                          # conditionalPanel("input.routing",
+                                          #                  box(title = "Download",
+                                          #                      solidHeader = T,background = "black",
+                                          #     switchInput(inputId = "gpx",
+                                          #                 onLabel = "GPX", offLabel = "KML", label =icon("save")),
+                                          #     downloadButton("downloadData", "Download"))))
+                                   )))
+                        ),
                       fluidRow(
                         box(width = 12,background = "black",title = "Traveltime", solidHeader = T,
                             column(width = 5,
@@ -160,6 +170,10 @@ dashboardPage(dashboardHeader(disable = T),
                             column(width = 5,
                                    tableOutput("traveltime")))
                       )
+                      # # Dl-Button
+                      # box(solidHeader = T, switchInput(inputId = "gpx",
+                      #                 onLabel = "GPX", offLabel = "KML", label =icon("save")),
+                      #     downloadButton("downloadData", "Download"))
                )
            )
     )
