@@ -5,18 +5,19 @@ cycle_api <- "8e9f2ec7f09a1ff4"
 graph_hopper <- "170ca04c-aef5-4efc-9691-ec8325d934ef"
 help <- TRUE
 
-# Define server logic required to draw a histogram
+# Define server logic
 
 
 server <- function(input, output, session) {
+  # reactive values
   values <- reactiveValues(df = NULL)
-  tmp_route <- reactiveValues(df = NULL)
+  tmp_route <- reactiveValues(df = NULL) # route as sf
   elevPoints <- reactiveValues(df = NULL)
   elevPoints_route <- reactiveValues(df = NULL)
   pKm <-  reactiveValues(df = NULL)
   weatherdata <- reactiveValues(df = NULL)
   height <- reactiveValues(df = NULL)
-  routed <- reactiveValues(df = NULL)
+  routed <- reactiveValues(df = NULL)  # bool. - is there a routed track y/n
   search <- reactiveValues(df = NULL)
   search2 <- reactiveValues(df = NULL)
 
@@ -27,7 +28,21 @@ server <- function(input, output, session) {
       out[[i]] <- textInput(inputId = paste0("to",i),label = "waypoints",placeholder = "Adress")
     }
     return(div(out))
-  })  #render the ui dynamically
+  })
+  output$download <- renderUI({
+    if(!is.null(tmp_route$df)){
+      dwn <- column(width = 4,box(width = NULL, title = "Download",
+                                  solidHeader = T,background = "black",
+                                  switchInput(width = 12,inputId = "gpx",
+                                              onLabel = "GPX", offLabel = "KML",
+                                              label =icon("save")),
+                                downloadButton("downloadData", "Download")))
+    return(div(dwn))
+    } else {
+      dwn <- box(width = NULL, solidHeader = T, background = "black")
+      return(div(dwn))
+    }
+  })  #render the ui dynamically#render the ui dynamically
 
   #functions
   create_lines <- function(data){
@@ -61,25 +76,34 @@ server <- function(input, output, session) {
     }
     print("sampling")
     trip_length <- SpatialLinesLengths(as(lines,"Spatial"))
+    print(trip_length)
+    lod <- trip_length/100 #lvl of detail -> much quicker
     if(trip_length > 10){
-      numOfPoints  <-  as.numeric(trip_length/0.075)
+      numOfPoints  <-  as.numeric(trip_length/lod)
     } else if(trip_length < 1) {
       numOfPoints <- 50
     } else {
-      numOfPoints  <-  as.numeric(trip_length/0.025)
+      numOfPoints  <-  as.numeric(trip_length/0.03)
     }
     points <- spsample(as(lines,"Spatial"), n = numOfPoints, type = "regular")
     points <- st_as_sf(points)
     print("samples done")
+    a <- Sys.time()
     st_crs(points) <- 4326
     start <- st_sf(geometry = st_sfc(st_point(st_coordinates(lines)[1,1:2])),crs = 4326)
     points <- rbind(start, points)
-
+    print(a- Sys.time())
+    print("elevation")
+    a <- Sys.time()
     xy <- as.data.frame(st_coordinates(points))
     t<- elevation(longitude = xy$X,latitude = xy$Y, key = apikey)
+    print(a- Sys.time())
 
+    elevation
     tmp <- 0
     j <- 1
+    print("start for loop")
+    a <- Sys.time()
     for (i in 1:nrow(points)){
       if (i == 1){
         points$distance[j] <- 0
@@ -93,6 +117,7 @@ server <- function(input, output, session) {
         points$distance[j] <- tmp
       }
     }
+    print(a- Sys.time())
     points$elev <- t$elevation
     points$distance <- cumsum(points$distance)
     points
@@ -207,7 +232,7 @@ server <- function(input, output, session) {
     )
   }) #help page
 
-  #Base map functions
+  #Base map functions, map events start here
 
   # search observer
   observe({
@@ -255,7 +280,7 @@ server <- function(input, output, session) {
       leafletProxy("leafmap", data = eventdata) %>%
         removeShape("p") %>%
         addCircles(lng = eventdata[,3],lat = eventdata[,4] ,
-                   color = "red",radius = 8,fill = "red",layerId = "p")
+                   color = "red",radius = 12,fill = "red",layerId = "p")
     }
   })
   # map events end here --------------
@@ -316,7 +341,7 @@ server <- function(input, output, session) {
 
   })
 
-  # New Feature
+  # New Feature-------------
   observeEvent(input$leafmap_draw_new_feature,{
     print("New Feature")
     # print(input$leafmap_draw_new_feature)
@@ -550,6 +575,8 @@ server <- function(input, output, session) {
   output$traveltime <- renderTable({
     traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)
   })
+
+  #plot outputs start here -----------------
   output$plot <- renderPlotly({
     if(is.null(values$df)){
       ggplot()
@@ -584,6 +611,27 @@ server <- function(input, output, session) {
         ggplot(aes(x = distance, y = elev)) + geom_area(alpha = 0.5,fill = "red") + theme_minimal()
     }
   })
+  #import and export----
+  ##download----------
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      if(input$gpx){
+        paste("trip", ".gpx", sep = "")
+      }  else {
+        paste("trip", ".kml", sep = "")
+      }
+
+    },
+    content = function(file) {
+      if(input$gpx){
+      writeOGR(obj = tmp_route$df,dsn= file, layer="trip",
+               dataset_options="GPX_USE_EXTENSIONS=yes",driver="GPX")
+      } else {
+        writeOGR(obj = tmp_route$df,dsn= file, layer="trip",driver="KML")
+        }
+
+    }
+    )
   # header boxes
   output$main <- renderInfoBox({
     infoBox(value = "hikeR",title = "Plan your trip with",icon = icon("pagelines"),fill = T,
@@ -594,7 +642,3 @@ server <- function(input, output, session) {
             href = "https://github.com/EricKrg/hikeR",color = "black")
   })
 }
-
-# Run the application
-#shinyApp(ui = ui, server = server)
-
