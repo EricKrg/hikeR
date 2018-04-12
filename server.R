@@ -3,6 +3,7 @@
 apikey <- "AIzaSyAB6DJYmiY-82HLSgo0CLCDeZ9h2p6l9xY"
 cycle_api <- "8e9f2ec7f09a1ff4"
 graph_hopper <- "170ca04c-aef5-4efc-9691-ec8325d934ef"
+openweathermap <- "5ce4b83bdb700f5077e1d3cf039851e7"
 help <- TRUE
 
 # Define server logic
@@ -77,13 +78,12 @@ server <- function(input, output, session) {
     print("sampling")
     trip_length <- SpatialLinesLengths(as(lines,"Spatial"))
     print(trip_length)
-    lod <- trip_length/100 #lvl of detail -> much quicker
-    if(trip_length > 10){
-      numOfPoints  <-  as.numeric(trip_length/lod)
-    } else if(trip_length < 1) {
+    lod <- trip_length/100
+    print(lod) #lvl of detail -> much quicker
+    if(trip_length < 1) {
       numOfPoints <- 50
     } else {
-      numOfPoints  <-  as.numeric(trip_length/0.03)
+      numOfPoints  <-  as.numeric(trip_length/lod)
     }
     points <- spsample(as(lines,"Spatial"), n = numOfPoints, type = "regular")
     points <- st_as_sf(points)
@@ -112,7 +112,7 @@ server <- function(input, output, session) {
         break
       } else {
         j <- i +1
-        tmp <- distance(point_a = xy[i,] ,point_b = xy[j,], unit = "m")
+        tmp <- distance(point_a = xy[i,] ,point_b = xy[j,], unit = "m") #faster then with st_length
         #tmp <- st_length(st_linestring(st_coordinates(points[i:j,])))
         points$distance[j] <- tmp
       }
@@ -253,10 +253,12 @@ server <- function(input, output, session) {
       addTiles() %>%
       addDrawToolbar(editOptions = editToolbarOptions(remove = F),singleFeature = T,
                      circleOptions = F,polygonOptions = F,rectangleOptions = F,
-                     markerOptions = F) %>% addProviderTiles(providers$HikeBike.HikeBike) %>%
+                     markerOptions = F) %>% addProviderTiles(providers$HikeBike.HikeBike) %>%    #HikeBike.HikeBike
+      mapview::addMouseCoordinates()  %>%
       setView(lng =  search$df[1] , lat = search$df[2],
               zoom =if(input$detail){19} else{12}) %>%
-      addCircles(lng = if(input$detail){search$df[1]}else{0}, lat = if(input$detail){search$df[2]}else{0})
+      addCircles(lng = if(input$detail){search$df[1]}else{0},
+                 lat = if(input$detail){search$df[2]}else{0})
   })
 
   # map the routed trip
@@ -323,30 +325,16 @@ server <- function(input, output, session) {
       print("draw route")
       tmp_route$df <- routing(values$df)
     }
-    print("elev  route")
     elevPoints_route$df <- spatial(tmp_route$df)
-    print("height route")
-    height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
-    print("route weather")
-    weatherdata$df <- weather(elevPoints_route$df)
-
-    print("pkm")
-    pKm$df <- performance_km(elevPoints_route$df,col="elev")
-    pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
-    updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
-    updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
-    updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
-    updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
-    gc()
-
+    #print("height route")
+    #height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
   })
 
   # New Feature-------------
   observeEvent(input$leafmap_draw_new_feature,{
     print("New Feature")
     # print(input$leafmap_draw_new_feature)
-    tmp_route$df <- NULL
-    elevPoints_route$df <- NULL
+    # elevPoints_route$df <- NULL
     elevPoints$df <- NULL
     pKm$df <- NULL
     updateProgressBar(session = session, id = "pKm", value = 0,total = 100)
@@ -354,21 +342,8 @@ server <- function(input, output, session) {
     updateProgressBar(session = session, id = "up", value = 0,total = 100)
     updateProgressBar(session = session, id = "down", value = 0,total = 100)
     routed$df <- FALSE
+    tmp_route$df <- NULL
     gc()
-  })
-
-  # Edited Features
-  observeEvent(input$leafmap_draw_edited_features,{
-    # print("Edited Features")
-    # print(input$leafmap_draw_edited_features)
-  })
-  observeEvent(input$leafmap_draw_deleted_features,{
-    # print("Deleted Features")
-    # print(input$leafmap_draw_deleted_features)
-    if (!is.null(input$leafmap_draw_deleted_features$type)){
-      #print("test")
-      values$df <- NULL
-    }
   })
 
   # We also listen for draw_all_features which is called anytime
@@ -400,7 +375,20 @@ server <- function(input, output, session) {
       print("weather df")
       weatherdata$df <- weather(elevPoints$df)
       if(!is.null(tmp_route$df)){
-        tmp_route$df <- NULL
+        # print("elev  route")
+        # elevPoints_route$df <- spatial(tmp_route$df)
+        # print("height route")
+        height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
+        print("pkm")
+        pKm$df <- performance_km(elevPoints_route$df,col="elev")
+        pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
+        updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
+        updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
+        updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
+        updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
+        print("route weather")
+        weatherdata$df <- weather(elevPoints_route$df)
+
       }
     }
   })
@@ -578,7 +566,7 @@ server <- function(input, output, session) {
 
   #plot outputs start here -----------------
   output$plot <- renderPlotly({
-    if(is.null(values$df)){
+    if(is.null(elevPoints$df)){
       ggplot()
     } else {
       elevPoints$df$x <- st_coordinates(elevPoints$df)[,1]
@@ -593,8 +581,8 @@ server <- function(input, output, session) {
     if(is.null(tmp_route$df)){
       ggplot()
     } else {
-      height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
-
+      print("check me")
+      print(elevPoints_route$df)
       elevPoints_route$df$x <- st_coordinates(elevPoints_route$df)[,1]
       elevPoints_route$df$y <- st_coordinates(elevPoints_route$df)[,2]
       p <- plot_ly(elevPoints_route$df, x = ~x, y = ~y, z = ~elev,

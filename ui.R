@@ -23,6 +23,7 @@ require(weatherr)
 require(shinyWidgets)
 require(mapview)
 require(rgdal)
+require(raster)
 
 
 # constant like vars.
