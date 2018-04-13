@@ -1,16 +1,18 @@
 
 # constant like vars.
-apikey <- "AIzaSyAB6DJYmiY-82HLSgo0CLCDeZ9h2p6l9xY"
-cycle_api <- "8e9f2ec7f09a1ff4"
-graph_hopper <- "170ca04c-aef5-4efc-9691-ec8325d934ef"
-openweathermap <- "5ce4b83bdb700f5077e1d3cf039851e7"
+apikey <- Sys.getenv("apikey")
+cycle_api <- Sys.getenv("cycle_api")
+graph_hopper <- Sys.getenv("graph_hopper")
+openweathermap <- Sys.getenv("openweathermap")
+
+
 help <- TRUE
 
 # Define server logic
 
 
 server <- function(input, output, session) {
-  # reactive values
+  # reactive values----------------
   values <- reactiveValues(df = NULL)
   tmp_route <- reactiveValues(df = NULL) # route as sf
   elevPoints <- reactiveValues(df = NULL)
@@ -21,8 +23,13 @@ server <- function(input, output, session) {
   routed <- reactiveValues(df = NULL)  # bool. - is there a routed track y/n
   search <- reactiveValues(df = NULL)
   search2 <- reactiveValues(df = NULL)
+  goweather <- reactiveValues(df = NULL) # update weather panels if trip is routed
 
-  #ui value dynamic panels for all waypoints
+  # intial values
+  goweather$df <- FALSE
+  routed$df <- FALSE
+
+  #ui value dynamic panels for all waypoints-------------
   output$waypoints_panel <- renderUI({
     out <- list()
     for(i in 1:input$waypoints){
@@ -45,7 +52,7 @@ server <- function(input, output, session) {
     }
   })  #render the ui dynamically#render the ui dynamically
 
-  #functions
+  #functions -----------
   create_lines <- function(data){
     if(!is.null(data)){
       coordinates(data) <- c("x","y")
@@ -121,7 +128,7 @@ server <- function(input, output, session) {
     points$elev <- t$elevation
     points$distance <- cumsum(points$distance)
     points
-  }
+  } # coords to lines  + adding elv.
   weather <- function(in_data){
     if(class(in_data) == "numeric"){
       mid <- in_data
@@ -139,6 +146,7 @@ server <- function(input, output, session) {
         break
       }
       if(input$route_opt == "cycle"){
+        print("using cycle")
         tmp[[i]] <- route_cyclestreet(from = data[i,] ,to = data[i+1,] ,
                                       plan = input$plan, pat = cycle_api,
                                       base_url = "https://www.cyclestreets.net")
@@ -148,7 +156,7 @@ server <- function(input, output, session) {
         tmp[[i]] <- route_osrm(from = data[i,], to = data[i+1,])
       }
       else if(input$route_opt == "GHopper"){
-        print("using standard")
+        print("using ghop")
         tmp[[i]] <- route_graphhopper(from = data[i,], to = data[i+1,], pat = graph_hopper,
                                       vehicle = input$graph, silent = T ,base_url = "https://graphhopper.com" )
       }
@@ -264,12 +272,17 @@ server <- function(input, output, session) {
   # map the routed trip
   observe({
     if(!is.null(tmp_route$df)){
+      view <- st_as_sf(tmp_route$df) %>%
+        st_centroid() %>%
+        st_coordinates()
+      print(view)
       leafletProxy("leafmap", data = tmp_route$df) %>%
         clearShapes() %>% addPolylines(color = "Black",
                                        highlightOptions = highlightOptions(bringToFront = T,
                                                                            stroke =T,
                                                                            weight = 5,
-                                                                           color =  "red"))
+                                                                           color =  "red")) %>%
+        setView(lng = view[,1],lat = view[,2] , zoom = 12)
     } else {
       leafletProxy("leafmap", data = c()) %>%
         clearShapes()
@@ -326,11 +339,9 @@ server <- function(input, output, session) {
       tmp_route$df <- routing(values$df)
     }
     elevPoints_route$df <- spatial(tmp_route$df)
-    #print("height route")
-    #height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
   })
-
   # New Feature-------------
+  # null bars if new feature
   observeEvent(input$leafmap_draw_new_feature,{
     print("New Feature")
     # print(input$leafmap_draw_new_feature)
@@ -346,12 +357,33 @@ server <- function(input, output, session) {
     gc()
   })
 
-  # We also listen for draw_all_features which is called anytime
-  # features are created/edited/deleted from the map
+  # updated for routed trip
+  observe(if(routed$df){
+    if(!is.null(tmp_route$df)){
+      print("route info")
+      height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
+      print("pkm")
+      pKm$df <- performance_km(elevPoints_route$df,col="elev")
+      pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
+      updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
+      updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
+      updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
+      updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
+      routed$df <- FALSE
+      goweather$df <- TRUE # not so cool solution
+    }
+  })
+
+  observe(if(goweather$df){
+    print("route weather extra")
+    weatherdata$df <- weather(elevPoints_route$df)
+    goweather$df <- FALSE
+  })
+
+
+  # updated for airline trip
   observeEvent(input$leafmap_draw_all_features,{
-    # print("All Features")
-    # print(input$leafmap_draw_all_features)
-    # print(length(input$leafmap_draw_all_features$features[[1]]$geometry$coordinates))
+    print("All Features")
     if (!is.null(input$leafmap_draw_new_feature$type)){
       x <- c()
       y <- c()
@@ -374,26 +406,10 @@ server <- function(input, output, session) {
       updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
       print("weather df")
       weatherdata$df <- weather(elevPoints$df)
-      if(!is.null(tmp_route$df)){
-        # print("elev  route")
-        # elevPoints_route$df <- spatial(tmp_route$df)
-        # print("height route")
-        height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
-        print("pkm")
-        pKm$df <- performance_km(elevPoints_route$df,col="elev")
-        pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
-        updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
-        updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
-        updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
-        updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
-        print("route weather")
-        weatherdata$df <- weather(elevPoints_route$df)
-
-      }
     }
   })
 
-  # weather
+  # weather-----------------
   output$temp <- renderValueBox ({
     if(is.null(weatherdata$df)){
       valueBox(
@@ -508,23 +524,7 @@ server <- function(input, output, session) {
     weatherdata$df <- weather(values$df)
     return(weatherdata$df[4,])
   })
-
-  output$data <- renderTable({
-    values$df
-  })
-  # output$height <- renderTable({
-  #   if(!is.null(height$df) & !is.null(pKm$df)){
-  #
-  #     # height$df <- format(height_diff(elevPoints_route$df, col = "elev"),digits = 5)
-  #     all <- data.frame(distance= pKm$df[,4], height_diff = height$df)
-  #   }
-  #   else if(!is.null(height$df) & is.null(pKm$df)){
-  #     all <- data.frame(distance= 0, height_diff = height$df)
-  #   } else {
-  #     all <- data.frame(distance= 0, height_diff = 0)
-  #   }
-  #   return(all)
-  # })
+  # height info box (black)
   output$heightbox <- renderValueBox ({
     if(!is.null(height$df)){
       print(height$df)
@@ -573,7 +573,8 @@ server <- function(input, output, session) {
       elevPoints$df$y <- st_coordinates(elevPoints$df)[,2]
       p <- plot_ly(elevPoints$df, x = ~x, y =  ~y, z = ~elev,
                    type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
-                   text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text",visible = TRUE)
+                   text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
+        add_trace(hoverinfo = 'none')
 
     }
   }) #airline
