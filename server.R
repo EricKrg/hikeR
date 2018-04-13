@@ -1,10 +1,10 @@
 
 # constant like vars.
+
 apikey <- Sys.getenv("apikey")
 cycle_api <- Sys.getenv("cycle_api")
 graph_hopper <- Sys.getenv("graph_hopper")
 openweathermap <- Sys.getenv("openweathermap")
-
 
 help <- TRUE
 
