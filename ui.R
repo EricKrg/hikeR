@@ -25,10 +25,10 @@ require(mapview)
 require(rgdal)
 require(raster)
 
-
 # constant like vars.
 help <- TRUE
 height_stats <- FALSE
+
 #style funs
 progressBar2 <- function (id, value, total = NULL, display_pct = FALSE, size = NULL,
                           status = NULL, striped = FALSE, title = NULL)
@@ -78,6 +78,8 @@ dashboardPage(dashboardHeader(disable = T),
                            value = "Jena" ,
                            btnSearch = icon("search"),
                            btnReset = icon("remove")),
+               # selectizeInput("test", "label",choices= state.name ,selected = NULL,  multiple = F,
+               #                options = list(maxOptions = 2)),
                materialSwitch(inputId = "detail", label = "Jump to street level", status = "danger"),
                fluidRow(
                  column(width = 4,
@@ -148,12 +150,6 @@ dashboardPage(dashboardHeader(disable = T),
                                                     actionButton("routing","Route"))),
                                    column(width = 4,
                                           uiOutput("download")
-                                          # conditionalPanel("input.routing",
-                                          #                  box(title = "Download",
-                                          #                      solidHeader = T,background = "black",
-                                          #     switchInput(inputId = "gpx",
-                                          #                 onLabel = "GPX", offLabel = "KML", label =icon("save")),
-                                          #     downloadButton("downloadData", "Download"))))
                                    )))
                         ),
                       fluidRow(
@@ -171,10 +167,6 @@ dashboardPage(dashboardHeader(disable = T),
                             column(width = 5,
                                    tableOutput("traveltime")))
                       )
-                      # # Dl-Button
-                      # box(solidHeader = T, switchInput(inputId = "gpx",
-                      #                 onLabel = "GPX", offLabel = "KML", label =icon("save")),
-                      #     downloadButton("downloadData", "Download"))
                )
            )
     )

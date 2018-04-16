@@ -53,12 +53,15 @@ server <- function(input, output, session) {
   })  #render the ui dynamically#render the ui dynamically
 
   #functions -----------
-  create_lines <- function(data){
+  create_lines <- function(data){  # line string from multiple input points
     if(!is.null(data)){
-      coordinates(data) <- c("x","y")
-      lines <- SpatialLines(list(Lines(list(Line(data)), "id")))
-      lines <- st_as_sf(lines)
-      st_crs(lines) <- 4326
+      # old sp stuff
+      #coordinates(data) <- c("x","y")
+      #lines <- SpatialLines(list(Lines(list(Line(data)), "id")))
+      #lines <- st_as_sf(lines)
+      # new beatiful sf
+      print(data)
+      lines <- st_sfc(st_linestring(as.matrix(data)))#,crs = 4326)
       return(lines)
     }
   }
@@ -80,33 +83,44 @@ server <- function(input, output, session) {
       lines <- create_lines(data)
     } else {
       lines <- st_as_sf(data)
+      st_crs(lines) <- NA
 
     }
     print("sampling")
     trip_length <- SpatialLinesLengths(as(lines,"Spatial"))
     print(trip_length)
     lod <- trip_length/100
-    print(lod) #lvl of detail -> much quicker
+    #print(lod) #lvl of detail -> much quicker
     if(trip_length < 1) {
       numOfPoints <- 50
     } else {
       numOfPoints  <-  as.numeric(trip_length/lod)
     }
-    points <- spsample(as(lines,"Spatial"), n = numOfPoints, type = "regular")
-    points <- st_as_sf(points)
+    # print("sample start")
+    # a <- Sys.time()
+    # points <- spsample(as(lines,"Spatial"), n = numOfPoints, type = "regular")
+    # points <- st_as_sf(points)
+    # st_crs(points) <- 4326
+    #
+    # print(a- Sys.time())
+    # print(points)
+    print("sf samples")
+    a <- Sys.time()
+    points <- st_line_sample(lines, numOfPoints, type = "regular")
+    points <- st_sf(geometry = st_cast(st_sfc(points),to = "POINT"),crs = 4326)
+    print(a- Sys.time())
     print("samples done")
     a <- Sys.time()
-    st_crs(points) <- 4326
     start <- st_sf(geometry = st_sfc(st_point(st_coordinates(lines)[1,1:2])),crs = 4326)
     points <- rbind(start, points)
     print(a- Sys.time())
     print("elevation")
     a <- Sys.time()
+
     xy <- as.data.frame(st_coordinates(points))
     t<- elevation(longitude = xy$X,latitude = xy$Y, key = apikey)
     print(a- Sys.time())
 
-    elevation
     tmp <- 0
     j <- 1
     print("start for loop")
@@ -146,24 +160,24 @@ server <- function(input, output, session) {
         break
       }
       if(input$route_opt == "cycle"){
-        print("using cycle")
+        #print("using cycle")
         tmp[[i]] <- route_cyclestreet(from = data[i,] ,to = data[i+1,] ,
                                       plan = input$plan, pat = cycle_api,
                                       base_url = "https://www.cyclestreets.net")
       }
       else if(input$route_opt == "OSM"){
-        print("using standard")
+        #print("using standard")
         tmp[[i]] <- route_osrm(from = data[i,], to = data[i+1,])
       }
       else if(input$route_opt == "GHopper"){
-        print("using ghop")
+        #print("using ghop")
         tmp[[i]] <- route_graphhopper(from = data[i,], to = data[i+1,], pat = graph_hopper,
                                       vehicle = input$graph, silent = T ,base_url = "https://graphhopper.com" )
       }
     }
     route <- do.call(rbind,tmp)
     return(route)
-  }
+  } # this is still returning an sp obj.
   search_plc <- function(instring){
     xy <- geo_code(instring)
     # if(length(xy) == 0){
@@ -295,7 +309,8 @@ server <- function(input, output, session) {
       leafletProxy("leafmap", data = eventdata) %>%
         removeShape("p") %>%
         addCircles(lng = eventdata[,3],lat = eventdata[,4] ,
-                   color = "red",radius = 12,fill = "red",layerId = "p")
+                   color = "red",radius = 12, fill = "red",layerId = "p", weight = 1) %>%
+        setView(lng = eventdata[,3],lat = eventdata[,4] ,zoom = 14)
     }
   })
   # map events end here --------------
@@ -312,7 +327,7 @@ server <- function(input, output, session) {
       if(input$more){
         tmp_route$df <- NULL
         wayp_list <- data.frame(name = paste0("to",1:input$waypoints))
-        print(wayp_list)
+        #print(wayp_list)
         j = 1
         tmp <- list()
         for(i in wayp_list$name){
@@ -325,7 +340,7 @@ server <- function(input, output, session) {
         to <- geo_code(input$to)
         all <- rbind(from, wayp)
         all <- rbind(all, to)
-        print(all)
+        #print(all)
         tmp_route$df <- routing(all)
       } else {
         print("a to b")
@@ -569,8 +584,9 @@ server <- function(input, output, session) {
     if(is.null(elevPoints$df)){
       ggplot()
     } else {
-      elevPoints$df$x <- st_coordinates(elevPoints$df)[,1]
-      elevPoints$df$y <- st_coordinates(elevPoints$df)[,2]
+      coords <- st_coordinates(elevPoints$df)
+      elevPoints$df$x <- coords[,1]
+      elevPoints$df$y <- coords[,2]
       p <- plot_ly(elevPoints$df, x = ~x, y =  ~y, z = ~elev,
                    type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
                    text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
@@ -583,9 +599,9 @@ server <- function(input, output, session) {
       ggplot()
     } else {
       print("check me")
-      print(elevPoints_route$df)
-      elevPoints_route$df$x <- st_coordinates(elevPoints_route$df)[,1]
-      elevPoints_route$df$y <- st_coordinates(elevPoints_route$df)[,2]
+      coords <- st_coordinates(elevPoints_route$df)
+      elevPoints_route$df$x <- coords[,1]
+      elevPoints_route$df$y <- coords[,2]
       p <- plot_ly(elevPoints_route$df, x = ~x, y = ~y, z = ~elev,
                    type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
                    text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
