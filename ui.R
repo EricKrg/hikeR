@@ -24,6 +24,7 @@ require(shinyWidgets)
 require(mapview)
 require(rgdal)
 require(raster)
+require(shinycssloaders)
 
 # constant like vars.
 help <- TRUE
@@ -107,8 +108,10 @@ dashboardPage(dashboardHeader(disable = T),
                                         progressBar2(title = "vertical down (m)", id = "down",value = 0, status = "info",
                                                      display_pct = TRUE)
                                ),
-                               tabPanel(icon = icon("caret-up"),"Airline",plotly::plotlyOutput("plot",width = NULL)),
-                               tabPanel(icon = icon("caret-up"),"Route", plotly::plotlyOutput("plot_route")),
+                               tabPanel(icon = icon("caret-up"),"Airline", plotly::plotlyOutput("plot",width = NULL),
+                                        switchInput("twoD",label = "2D",value = FALSE)),
+                               tabPanel(icon = icon("caret-up"),"Route", withSpinner(plotly::plotlyOutput("plot_route"),type = 6),
+                                        switchInput("twoDr",label = "2D",value = FALSE)),
                                tabPanel(title = "Trip coords.",icon = icon("map-marker"),
                                         tableOutput("data"))
                         )

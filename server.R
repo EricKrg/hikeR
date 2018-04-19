@@ -24,10 +24,11 @@ server <- function(input, output, session) {
   search <- reactiveValues(df = NULL)
   search2 <- reactiveValues(df = NULL)
   goweather <- reactiveValues(df = NULL) # update weather panels if trip is routed
-
+  goUpdate <- reactiveValues(df = NULL)
   # intial values
   goweather$df <- FALSE
   routed$df <- FALSE
+  goUpdate$df <- FALSE
 
   #ui value dynamic panels for all waypoints-------------
   output$waypoints_panel <- renderUI({
@@ -55,11 +56,6 @@ server <- function(input, output, session) {
   #functions -----------
   create_lines <- function(data){  # line string from multiple input points
     if(!is.null(data)){
-      # old sp stuff
-      #coordinates(data) <- c("x","y")
-      #lines <- SpatialLines(list(Lines(list(Line(data)), "id")))
-      #lines <- st_as_sf(lines)
-      # new beatiful sf
       print(data)
       lines <- st_sfc(st_linestring(as.matrix(data)))#,crs = 4326)
       return(lines)
@@ -78,6 +74,7 @@ server <- function(input, output, session) {
     }
   }
   spatial <- function(data){
+    withProgress(message = 'fetching elevation', value = 0.1, {
     if(class(data)[1] != "SpatialLinesDataFrame"){ #filter results form routing
       print("normal lines")
       lines <- create_lines(data)
@@ -86,6 +83,7 @@ server <- function(input, output, session) {
       st_crs(lines) <- NA
 
     }
+      incProgress(0.1)
     print("sampling")
     trip_length <- SpatialLinesLengths(as(lines,"Spatial"))
     print(trip_length)
@@ -96,20 +94,15 @@ server <- function(input, output, session) {
     } else {
       numOfPoints  <-  as.numeric(trip_length/lod)
     }
-    # print("sample start")
-    # a <- Sys.time()
-    # points <- spsample(as(lines,"Spatial"), n = numOfPoints, type = "regular")
-    # points <- st_as_sf(points)
-    # st_crs(points) <- 4326
-    #
-    # print(a- Sys.time())
-    # print(points)
     print("sf samples")
     a <- Sys.time()
     points <- st_line_sample(lines, numOfPoints, type = "regular")
     points <- st_sf(geometry = st_cast(st_sfc(points),to = "POINT"),crs = 4326)
     print(a- Sys.time())
     print("samples done")
+    #
+    incProgress(0.3)
+    #
     a <- Sys.time()
     start <- st_sf(geometry = st_sfc(st_point(st_coordinates(lines)[1,1:2])),crs = 4326)
     points <- rbind(start, points)
@@ -120,7 +113,9 @@ server <- function(input, output, session) {
     xy <- as.data.frame(st_coordinates(points))
     t<- elevation(longitude = xy$X,latitude = xy$Y, key = apikey)
     print(a- Sys.time())
-
+    #
+    incProgress(0.2)
+    #
     tmp <- 0
     j <- 1
     print("start for loop")
@@ -138,10 +133,14 @@ server <- function(input, output, session) {
         points$distance[j] <- tmp
       }
     }
+    #
+    incProgress(0.2)
+    #
     print(a- Sys.time())
     points$elev <- t$elevation
     points$distance <- cumsum(points$distance)
     points
+    })
   } # coords to lines  + adding elv.
   weather <- function(in_data){
     if(class(in_data) == "numeric"){
@@ -154,8 +153,10 @@ server <- function(input, output, session) {
     return(smp_weather)
   }
   routing <- function(data){
+    withProgress(message = 'Route your trip', value = 0.1, {
     tmp <- list()
     for (i in 1:nrow(data)){
+      incProgress(0.05)
       if(i == nrow(data)){
         break
       }
@@ -175,8 +176,10 @@ server <- function(input, output, session) {
                                       vehicle = input$graph, silent = T ,base_url = "https://graphhopper.com" )
       }
     }
+    incProgress(0.1)
     route <- do.call(rbind,tmp)
     return(route)
+    })
   } # this is still returning an sp obj.
   search_plc <- function(instring){
     xy <- geo_code(instring)
@@ -269,6 +272,7 @@ server <- function(input, output, session) {
 
   })
 
+  # mapping --------
   # base leaflet with search function
   output$leafmap <- renderLeaflet({
     leaflet() %>%
@@ -283,7 +287,7 @@ server <- function(input, output, session) {
                  lat = if(input$detail){search$df[2]}else{0})
   })
 
-  # map the routed trip
+  # map the routed trip --> map tmp_route
   observe({
     if(!is.null(tmp_route$df)){
       view <- st_as_sf(tmp_route$df) %>%
@@ -302,14 +306,14 @@ server <- function(input, output, session) {
         clearShapes()
     }
   })
-  # over over height diagram --> map output
+  ## hover over height diagram --> map output
   observe({
     eventdata <- event_data("plotly_hover", source = "routed")
     if(!is.null(eventdata)){
       leafletProxy("leafmap", data = eventdata) %>%
         removeShape("p") %>%
         addCircles(lng = eventdata[,3],lat = eventdata[,4] ,
-                   color = "red",radius = 12, fill = "red",layerId = "p", weight = 1) %>%
+                   color = "red",radius = 20, fill = "red",layerId = "p", weight = 1) %>%
         setView(lng = eventdata[,3],lat = eventdata[,4] ,zoom = 14)
     }
   })
@@ -318,6 +322,60 @@ server <- function(input, output, session) {
   # input data starts here -----------
 
 
+  # New Feature-------------
+  # null bars if new feature
+  observeEvent(input$leafmap_draw_new_feature,{
+    print("New Feature")
+    # print(input$leafmap_draw_new_feature)
+    # elevPoints_route$df <- NULL
+    elevPoints$df <- NULL
+    pKm$df <- NULL
+    updateProgressBar(session = session, id = "pKm", value = 0,total = 100)
+    updateProgressBar(session = session, id = "flat", value = 0,total = 100)
+    updateProgressBar(session = session, id = "up", value = 0,total = 100)
+    updateProgressBar(session = session, id = "down", value = 0,total = 100)
+    routed$df <- FALSE
+    tmp_route$df <- NULL
+    gc()
+  })
+
+  # updated for airline trip
+  observeEvent(input$leafmap_draw_all_features,{
+    print("All Features")
+    if (!is.null(input$leafmap_draw_new_feature$type)){
+      x <- c()
+      y <- c()
+      print("create new feature")
+      for (i in 1:length(input$leafmap_draw_all_features$features[[1]]$geometry$coordinates)){
+        x[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[2]]
+        y[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[1]]
+      }
+      values$df <- data.frame(x = y , y = x) #mixed it up
+      goUpdate$df <- TRUE
+    }
+    })
+
+  # update all stat bars and weather
+  observe(if(goUpdate$df){
+    print("update")
+    elevPoints$df <- spatial(values$df)
+      print("airline height")
+      a <- Sys.time()
+      height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
+      print(Sys.time()- a)
+      print("airline pkm")
+      pKm$df <- performance_km(elevPoints$df,col="elev")
+      pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
+      updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
+      updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
+      updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
+      updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
+      print("weather df")
+      weatherdata$df <- weather(elevPoints$df)
+      goUpdate$df <- FALSE
+  })
+
+  # input routing
   observeEvent(input$routing, {
     print("route!")
     routed$df <- TRUE
@@ -355,22 +413,8 @@ server <- function(input, output, session) {
     }
     elevPoints_route$df <- spatial(tmp_route$df)
   })
-  # New Feature-------------
-  # null bars if new feature
-  observeEvent(input$leafmap_draw_new_feature,{
-    print("New Feature")
-    # print(input$leafmap_draw_new_feature)
-    # elevPoints_route$df <- NULL
-    elevPoints$df <- NULL
-    pKm$df <- NULL
-    updateProgressBar(session = session, id = "pKm", value = 0,total = 100)
-    updateProgressBar(session = session, id = "flat", value = 0,total = 100)
-    updateProgressBar(session = session, id = "up", value = 0,total = 100)
-    updateProgressBar(session = session, id = "down", value = 0,total = 100)
-    routed$df <- FALSE
-    tmp_route$df <- NULL
-    gc()
-  })
+  # end of routing event
+
 
   # updated for routed trip
   observe(if(routed$df){
@@ -395,34 +439,6 @@ server <- function(input, output, session) {
     goweather$df <- FALSE
   })
 
-
-  # updated for airline trip
-  observeEvent(input$leafmap_draw_all_features,{
-    print("All Features")
-    if (!is.null(input$leafmap_draw_new_feature$type)){
-      x <- c()
-      y <- c()
-      print("create new feature")
-      for (i in 1:length(input$leafmap_draw_all_features$features[[1]]$geometry$coordinates)){
-        x[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[2]]
-        y[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[1]]
-      }
-      values$df <- data.frame(x = y , y = x) #mixed it up
-      print("values df created")
-      elevPoints$df <- spatial(values$df)
-      print("airline height")
-      height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
-      print("airline pkm")
-      pKm$df <- performance_km(elevPoints$df,col="elev")
-      pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
-      updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
-      updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
-      updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
-      updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
-      print("weather df")
-      weatherdata$df <- weather(elevPoints$df)
-    }
-  })
 
   # weather-----------------
   output$temp <- renderValueBox ({
@@ -581,43 +597,73 @@ server <- function(input, output, session) {
 
   #plot outputs start here -----------------
   output$plot <- renderPlotly({
-    if(is.null(elevPoints$df)){
-      ggplot()
-    } else {
+    withProgress(message = 'Creating plot, be patient', value = 0.1, {
+    if(is.null(values$df)){
+      print("empty elev")
+      p <- ggplot()
+    }
+    else if(input$twoD){
+      print("airline elev 2d")
       coords <- st_coordinates(elevPoints$df)
       elevPoints$df$x <- coords[,1]
       elevPoints$df$y <- coords[,2]
+      p <- plot_ly(elevPoints$df, x = ~distance, y = ~elev,
+                   type = 'area', mode = 'lines',color = ~elev,
+                   text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
+        add_trace(hoverinfo = 'none')
+      }
+    else {
+      a <- Sys.time()
+      coords <- st_coordinates(elevPoints$df)
+      elevPoints$df$x <- coords[,1]
+      elevPoints$df$y <- coords[,2]
+      incProgress(0.5)
       p <- plot_ly(elevPoints$df, x = ~x, y =  ~y, z = ~elev,
                    type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
                    text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
         add_trace(hoverinfo = 'none')
-
+      print(Sys.time()-a)
+      print("3d airline")
+      incProgress(0.3)
     }
+    return(p)
+    })
   }) #airline
   output$plot_route <- renderPlotly({
+    withProgress(message = 'Creating plot, be patient', value = 0.1, {
     if(is.null(tmp_route$df)){
-      ggplot()
-    } else {
-      print("check me")
+      print("empty route")
+      p <- ggplot()
+    }
+    else if(input$twoDr){
       coords <- st_coordinates(elevPoints_route$df)
       elevPoints_route$df$x <- coords[,1]
       elevPoints_route$df$y <- coords[,2]
+      p <- plot_ly(elevPoints_route$df, x = ~distance, y = ~elev,
+                   type = 'area', mode = 'lines',color = ~elev,
+                   text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
+        add_trace(hoverinfo = 'none')
+    }
+    else {
+      a <- Sys.time()
+      coords <- st_coordinates(elevPoints_route$df)
+      elevPoints_route$df$x <- coords[,1]
+      elevPoints_route$df$y <- coords[,2]
+      incProgress(0.5)
       p <- plot_ly(elevPoints_route$df, x = ~x, y = ~y, z = ~elev,
                    type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
                    text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
         add_trace(hoverinfo = 'none')
+      print(Sys.time()-a)
+      print("3d route")
+      incProgress(0.3)
     }
+    return(p)
+    })
   }) #routed
-  output$plot2 <- renderPlot({
-    if(is.null(values$df)){
-      ggplot()
-    } else {
-      spatial(values$df) %>%
-        ggplot(aes(x = distance, y = elev)) + geom_area(alpha = 0.5,fill = "red") + theme_minimal()
-    }
-  })
+
   #import and export----
-  ##download----------
+  ##download
   output$downloadData <- downloadHandler(
     filename = function() {
       if(input$gpx){
@@ -637,7 +683,7 @@ server <- function(input, output, session) {
 
     }
     )
-  # header boxes
+  # header boxes------
   output$main <- renderInfoBox({
     infoBox(value = "hikeR",title = "Plan your trip with",icon = icon("pagelines"),fill = T,
             color = "olive")
