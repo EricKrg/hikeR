@@ -1,4 +1,4 @@
-# hikeR
+# hikeR :tent:
 A shiny application in order to ease up planning for the next hiking or bike trip.
 
 # ~~server version currently not working~~ Working again, enjoy! http://mccoy.geogr.uni-jena.de:3838/eric/hikeR/
