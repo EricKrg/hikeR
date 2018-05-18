@@ -45,8 +45,8 @@ server <- function(input, output, session) {
                                   switchInput(width = 12,inputId = "gpx",
                                               onLabel = "GPX", offLabel = "KML",
                                               label =icon("save")),
-                                downloadButton("downloadData", "Download")))
-    return(div(dwn))
+                                  downloadButton("downloadData", "Download")))
+      return(div(dwn))
     } else {
       dwn <- box(width = NULL, solidHeader = T, background = "black")
       return(div(dwn))
@@ -75,71 +75,71 @@ server <- function(input, output, session) {
   }
   spatial <- function(data){
     withProgress(message = 'fetching elevation', value = 0.1, {
-    if(class(data)[1] != "SpatialLinesDataFrame"){ #filter results form routing
-      print("normal lines")
-      lines <- create_lines(data)
-    } else {
-      lines <- st_as_sf(data)
-      st_crs(lines) <- NA
-
-    }
-      incProgress(0.1)
-    print("sampling")
-    trip_length <- SpatialLinesLengths(as(lines,"Spatial"))
-    print(trip_length)
-    lod <- trip_length/100
-    #print(lod) #lvl of detail -> much quicker
-    if(trip_length < 1) {
-      numOfPoints <- 50
-    } else {
-      numOfPoints  <-  as.numeric(trip_length/lod)
-    }
-    print("sf samples")
-    a <- Sys.time()
-    points <- st_line_sample(lines, numOfPoints, type = "regular")
-    points <- st_sf(geometry = st_cast(st_sfc(points),to = "POINT"),crs = 4326)
-    print(a- Sys.time())
-    print("samples done")
-    #
-    incProgress(0.3)
-    #
-    a <- Sys.time()
-    start <- st_sf(geometry = st_sfc(st_point(st_coordinates(lines)[1,1:2])),crs = 4326)
-    points <- rbind(start, points)
-    print(a- Sys.time())
-    print("elevation")
-    a <- Sys.time()
-
-    xy <- as.data.frame(st_coordinates(points))
-    t<- elevation(longitude = xy$X,latitude = xy$Y, key = apikey)
-    print(a- Sys.time())
-    #
-    incProgress(0.2)
-    #
-    tmp <- 0
-    j <- 1
-    print("start for loop")
-    a <- Sys.time()
-    for (i in 1:nrow(points)){
-      if (i == 1){
-        points$distance[j] <- 0
-      }
-      if (nrow(points)==i){
-        break
+      if(class(data)[1] != "SpatialLinesDataFrame"){ #filter results form routing
+        print("normal lines")
+        lines <- create_lines(data)
       } else {
-        j <- i +1
-        tmp <- distance(point_a = xy[i,] ,point_b = xy[j,], unit = "m") #faster then with st_length
-        #tmp <- st_length(st_linestring(st_coordinates(points[i:j,])))
-        points$distance[j] <- tmp
+        lines <- st_as_sf(data)
+        st_crs(lines) <- NA
+
       }
-    }
-    #
-    incProgress(0.2)
-    #
-    print(a- Sys.time())
-    points$elev <- t$elevation
-    points$distance <- cumsum(points$distance)
-    points
+      incProgress(0.1)
+      print("sampling")
+      trip_length <- SpatialLinesLengths(as(lines,"Spatial"))
+      print(trip_length)
+      lod <- trip_length/100
+      #print(lod) #lvl of detail -> much quicker
+      if(trip_length < 1) {
+        numOfPoints <- 50
+      } else {
+        numOfPoints  <-  as.numeric(trip_length/lod)
+      }
+      print("sf samples")
+      a <- Sys.time()
+      points <- st_line_sample(lines, numOfPoints, type = "regular")
+      points <- st_sf(geometry = st_cast(st_sfc(points),to = "POINT"),crs = 4326)
+      print(a- Sys.time())
+      print("samples done")
+      #
+      incProgress(0.3)
+      #
+      a <- Sys.time()
+      start <- st_sf(geometry = st_sfc(st_point(st_coordinates(lines)[1,1:2])),crs = 4326)
+      points <- rbind(start, points)
+      print(a- Sys.time())
+      print("elevation")
+      a <- Sys.time()
+
+      xy <- as.data.frame(st_coordinates(points))
+      t<- elevation(longitude = xy$X,latitude = xy$Y, key = apikey)
+      print(a- Sys.time())
+      #
+      incProgress(0.2)
+      #
+      tmp <- 0
+      j <- 1
+      print("start for loop")
+      a <- Sys.time()
+      for (i in 1:nrow(points)){
+        if (i == 1){
+          points$distance[j] <- 0
+        }
+        if (nrow(points)==i){
+          break
+        } else {
+          j <- i +1
+          tmp <- distance(point_a = xy[i,] ,point_b = xy[j,], unit = "m") #faster then with st_length
+          #tmp <- st_length(st_linestring(st_coordinates(points[i:j,])))
+          points$distance[j] <- tmp
+        }
+      }
+      #
+      incProgress(0.2)
+      #
+      print(a- Sys.time())
+      points$elev <- t$elevation
+      points$distance <- cumsum(points$distance)
+      points
     })
   } # coords to lines  + adding elv.
   weather <- function(in_data){
@@ -154,31 +154,31 @@ server <- function(input, output, session) {
   }
   routing <- function(data){
     withProgress(message = 'Route your trip', value = 0.1, {
-    tmp <- list()
-    for (i in 1:nrow(data)){
-      incProgress(0.05)
-      if(i == nrow(data)){
-        break
+      tmp <- list()
+      for (i in 1:nrow(data)){
+        incProgress(0.05)
+        if(i == nrow(data)){
+          break
+        }
+        if(input$route_opt == "cycle"){
+          #print("using cycle")
+          tmp[[i]] <- route_cyclestreet(from = data[i,] ,to = data[i+1,] ,
+                                        plan = input$plan, pat = cycle_api,
+                                        base_url = "https://www.cyclestreets.net")
+        }
+        else if(input$route_opt == "OSM"){
+          #print("using standard")
+          tmp[[i]] <- route_osrm(from = data[i,], to = data[i+1,])
+        }
+        else if(input$route_opt == "GHopper"){
+          #print("using ghop")
+          tmp[[i]] <- route_graphhopper(from = data[i,], to = data[i+1,], pat = graph_hopper,
+                                        vehicle = input$graph, silent = T ,base_url = "https://graphhopper.com" )
+        }
       }
-      if(input$route_opt == "cycle"){
-        #print("using cycle")
-        tmp[[i]] <- route_cyclestreet(from = data[i,] ,to = data[i+1,] ,
-                                      plan = input$plan, pat = cycle_api,
-                                      base_url = "https://www.cyclestreets.net")
-      }
-      else if(input$route_opt == "OSM"){
-        #print("using standard")
-        tmp[[i]] <- route_osrm(from = data[i,], to = data[i+1,])
-      }
-      else if(input$route_opt == "GHopper"){
-        #print("using ghop")
-        tmp[[i]] <- route_graphhopper(from = data[i,], to = data[i+1,], pat = graph_hopper,
-                                      vehicle = input$graph, silent = T ,base_url = "https://graphhopper.com" )
-      }
-    }
-    incProgress(0.1)
-    route <- do.call(rbind,tmp)
-    return(route)
+      incProgress(0.1)
+      route <- do.call(rbind,tmp)
+      return(route)
     })
   } # this is still returning an sp obj.
   search_plc <- function(instring){
@@ -278,8 +278,8 @@ server <- function(input, output, session) {
     leaflet() %>%
       addTiles() %>%
       addDrawToolbar(editOptions = editToolbarOptions(remove = F),singleFeature = T,
-                     circleOptions = F,polygonOptions = F,rectangleOptions = F,
-                     markerOptions = F) %>% addProviderTiles(providers$HikeBike.HikeBike) %>%    #HikeBike.HikeBike
+                     circleMarkerOptions = F, circleOptions = F,polygonOptions = F,
+                     rectangleOptions = F,markerOptions = F) %>% addProviderTiles(providers$HikeBike.HikeBike) %>%    #HikeBike.HikeBike
       mapview::addMouseCoordinates()  %>%
       setView(lng =  search$df[1] , lat = search$df[2],
               zoom =if(input$detail){19} else{12}) %>%
@@ -353,26 +353,26 @@ server <- function(input, output, session) {
       values$df <- data.frame(x = y , y = x) #mixed it up
       goUpdate$df <- TRUE
     }
-    })
+  })
 
   # update all stat bars and weather
   observe(if(goUpdate$df){
     print("update")
     elevPoints$df <- spatial(values$df)
-      print("airline height")
-      a <- Sys.time()
-      height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
-      print(Sys.time()- a)
-      print("airline pkm")
-      pKm$df <- performance_km(elevPoints$df,col="elev")
-      pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
-      updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
-      updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
-      updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
-      updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
-      print("weather df")
-      weatherdata$df <- weather(elevPoints$df)
-      goUpdate$df <- FALSE
+    print("airline height")
+    a <- Sys.time()
+    height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
+    print(Sys.time()- a)
+    print("airline pkm")
+    pKm$df <- performance_km(elevPoints$df,col="elev")
+    pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
+    updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
+    updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
+    updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
+    updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
+    print("weather df")
+    weatherdata$df <- weather(elevPoints$df)
+    goUpdate$df <- FALSE
   })
 
   # input routing
@@ -598,67 +598,67 @@ server <- function(input, output, session) {
   #plot outputs start here -----------------
   output$plot <- renderPlotly({
     withProgress(message = 'Creating plot, be patient', value = 0.1, {
-    if(is.null(values$df)){
-      print("empty elev")
-      p <- ggplot()
-    }
-    else if(input$twoD){
-      print("airline elev 2d")
-      coords <- st_coordinates(elevPoints$df)
-      elevPoints$df$x <- coords[,1]
-      elevPoints$df$y <- coords[,2]
-      p <- plot_ly(elevPoints$df, x = ~distance, y = ~elev,
-                   type = 'area', mode = 'lines',color = ~elev,
-                   text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
-        add_trace(hoverinfo = 'none')
+      if(is.null(values$df)){
+        print("empty elev")
+        p <- ggplot()
       }
-    else {
-      a <- Sys.time()
-      coords <- st_coordinates(elevPoints$df)
-      elevPoints$df$x <- coords[,1]
-      elevPoints$df$y <- coords[,2]
-      incProgress(0.5)
-      p <- plot_ly(elevPoints$df, x = ~x, y =  ~y, z = ~elev,
-                   type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
-                   text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
-        add_trace(hoverinfo = 'none')
-      print(Sys.time()-a)
-      print("3d airline")
-      incProgress(0.3)
-    }
-    return(p)
+      else if(input$twoD){
+        print("airline elev 2d")
+        coords <- st_coordinates(elevPoints$df)
+        elevPoints$df$x <- coords[,1]
+        elevPoints$df$y <- coords[,2]
+        p <- plot_ly(elevPoints$df, x = ~distance, y = ~elev,
+                     type = 'area', mode = 'lines',color = ~elev,
+                     text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
+          add_trace(hoverinfo = 'none')
+      }
+      else {
+        a <- Sys.time()
+        coords <- st_coordinates(elevPoints$df)
+        elevPoints$df$x <- coords[,1]
+        elevPoints$df$y <- coords[,2]
+        incProgress(0.5)
+        p <- plot_ly(elevPoints$df, x = ~x, y =  ~y, z = ~elev,
+                     type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
+                     text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
+          add_trace(hoverinfo = 'none')
+        print(Sys.time()-a)
+        print("3d airline")
+        incProgress(0.3)
+      }
+      return(p)
     })
   }) #airline
   output$plot_route <- renderPlotly({
     withProgress(message = 'Creating plot, be patient', value = 0.1, {
-    if(is.null(tmp_route$df)){
-      print("empty route")
-      p <- ggplot()
-    }
-    else if(input$twoDr){
-      coords <- st_coordinates(elevPoints_route$df)
-      elevPoints_route$df$x <- coords[,1]
-      elevPoints_route$df$y <- coords[,2]
-      p <- plot_ly(elevPoints_route$df, x = ~distance, y = ~elev,
-                   type = 'area', mode = 'lines',color = ~elev,
-                   text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
-        add_trace(hoverinfo = 'none')
-    }
-    else {
-      a <- Sys.time()
-      coords <- st_coordinates(elevPoints_route$df)
-      elevPoints_route$df$x <- coords[,1]
-      elevPoints_route$df$y <- coords[,2]
-      incProgress(0.5)
-      p <- plot_ly(elevPoints_route$df, x = ~x, y = ~y, z = ~elev,
-                   type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
-                   text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
-        add_trace(hoverinfo = 'none')
-      print(Sys.time()-a)
-      print("3d route")
-      incProgress(0.3)
-    }
-    return(p)
+      if(is.null(tmp_route$df)){
+        print("empty route")
+        p <- ggplot()
+      }
+      else if(input$twoDr){
+        coords <- st_coordinates(elevPoints_route$df)
+        elevPoints_route$df$x <- coords[,1]
+        elevPoints_route$df$y <- coords[,2]
+        p <- plot_ly(elevPoints_route$df, x = ~distance, y = ~elev,
+                     type = 'area', mode = 'lines',color = ~elev,
+                     text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
+          add_trace(hoverinfo = 'none')
+      }
+      else {
+        a <- Sys.time()
+        coords <- st_coordinates(elevPoints_route$df)
+        elevPoints_route$df$x <- coords[,1]
+        elevPoints_route$df$y <- coords[,2]
+        incProgress(0.5)
+        p <- plot_ly(elevPoints_route$df, x = ~x, y = ~y, z = ~elev,
+                     type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
+                     text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
+          add_trace(hoverinfo = 'none')
+        print(Sys.time()-a)
+        print("3d route")
+        incProgress(0.3)
+      }
+      return(p)
     })
   }) #routed
 
@@ -669,20 +669,20 @@ server <- function(input, output, session) {
       if(input$gpx){
         paste("trip", ".gpx", sep = "")
       }  else {
-        paste("trip", ".kml", sep = "")
+        paste("trip", ".fit", sep = "")
       }
 
     },
     content = function(file) {
       if(input$gpx){
-      writeOGR(obj = tmp_route$df,dsn= file, layer="trip",
-               dataset_options="GPX_USE_EXTENSIONS=yes",driver="GPX")
+        writeOGR(obj = tmp_route$df,dsn= file, layer="trip",
+                 dataset_options="GPX_USE_EXTENSIONS=yes",driver="GPX")
       } else {
         writeOGR(obj = tmp_route$df,dsn= file, layer="trip",driver="KML")
-        }
+      }
 
     }
-    )
+  )
   # header boxes------
   output$main <- renderInfoBox({
     infoBox(value = "hikeR",title = "Plan your trip with",icon = icon("pagelines"),fill = T,
