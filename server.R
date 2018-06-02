@@ -28,6 +28,9 @@ server <- function(input, output, session) {
   goUpdate <- reactiveValues(df = NULL)
   reach <- reactiveValues(df = NULL)
   reach_tf <- reactiveValues(df = NULL)
+  y_sync <- reactiveValues(df = NULL)
+  x_sync <- reactiveValues(df = NULL)
+  zoom_sync <- reactiveValues(df = NULL)
   # intial values
   goweather$df <- FALSE
   routed$df <- FALSE
@@ -407,6 +410,18 @@ server <- function(input, output, session) {
         baseGroups = c("Standard","Hike and Bike Map"))
   })
   # leafmap 2 for in reach
+  # sync both maps
+  observeEvent(input$leafmap_bounds,{
+      x_sync$df = (input$leafmap_bounds$east + input$leafmap_bounds$west)/2
+      y_sync$df = (input$leafmap_bounds$north + input$leafmap_bounds$south)/2
+      zoom_sync$df = input$leafmap_zoom
+
+  })
+  observeEvent(input$search,{
+    x_sync$df = search$df[1]
+    y_sync$df = search$df[2]
+    zoom_sync$df = input$leafmap_zoom
+  })
   output$leafmap_reach <- renderLeaflet({
     leaflet() %>%
       addTiles() %>%
@@ -414,8 +429,8 @@ server <- function(input, output, session) {
                      circleMarkerOptions = T, circleOptions = F,polygonOptions = F,
                      rectangleOptions = F,markerOptions = F,polylineOptions = F) %>% addProviderTiles(providers$CartoDB.DarkMatter) %>%    #HikeBike.HikeBike
       mapview::addMouseCoordinates()  %>%
-      setView(lng =  search$df[1] , lat = search$df[2],
-              zoom =if(input$detail){19} else{12}) %>%
+      setView(lng =  x_sync$df , lat = y_sync$df,
+              zoom =if(input$detail){19} else{zoom_sync$df}) %>%
       addCircles(lng = if(input$detail){search$df[1]}else{0},
                  lat = if(input$detail){search$df[2]}else{0})
   })
@@ -456,6 +471,7 @@ server <- function(input, output, session) {
         clearShapes()
     }
   })
+
   ## hover over height diagram --> map output
   observe({
     eventdata <- event_data("plotly_hover", source = "routed")
@@ -491,26 +507,14 @@ server <- function(input, output, session) {
   #observer leafmap 2
   observeEvent(input$leafmap_reach_draw_new_feature,{
     print("New Feature")
-
-    #x <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[2]]
-    #y <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[1]]
-
     reach_tf$df <- TRUE
-
-
   })
   observe(if(reach_tf$df){
-
     range <- as.numeric(input$reach_time)
     profile <- input$reach_plan
     x <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[2]]
     y <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[1]]
-    print(range)
-    print(profile)
-    print(x)
-    print(y)
     reach$df <- iso_create(y,x,range,profile)
-
     })
 
   # updated for airline trip
