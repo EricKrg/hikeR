@@ -80,41 +80,40 @@ server <- function(input, output, session) {
     }
   }
   ##----------------------------------------------------------------------------
-  spatial <- function(data){
-    withProgress(message = 'fetching elevation', value = 0.1, {
+  spatial <- function(data, shiny_progress, apikey){
+    if(shiny_progress){
+      withProgress(message = 'fetching elevation', value = 0.1, {
       #print(class(data))
       if(class(data)[1] == "sf"){ #filter results form routing, if it is routed it is allready a line
-        lines <- st_as_sf(data)
+        lines <- sf::st_as_sf(data)
         st_crs(lines) <- NA
       } else {
         lines <- create_lines(data)
       }
       incProgress(0.1)
-      #print("sampling")
-      trip_length <- SpatialLinesLengths(as(lines,"Spatial"))
+
+      trip_length <- sp::SpatialLinesLengths(as(lines,"Spatial"))
       lod <- trip_length/100 # lvl of detail for longer trips
       if(trip_length < 1) {
         numOfPoints <- 50
       } else {
         numOfPoints  <-  as.numeric(trip_length/lod)
       }
-      points <- st_line_sample(lines, numOfPoints, type = "regular") #sample points on the line
-      points <- st_sf(geometry = st_cast(st_sfc(points),to = "POINT"),crs = 4326)
+      points <- sf::st_line_sample(lines, numOfPoints, type = "regular") #sample points on the line
+      points <- sf::st_sf(geometry = sf::st_cast(sf::st_sfc(points),to = "POINT"),crs = 4326)
       #
       incProgress(0.3)
       #
 
-      start <- st_sf(geometry = st_sfc(st_point(st_coordinates(lines)[1,1:2])),crs = 4326)
+      start <- sf::st_sf(geometry = sf::st_sfc(sf::st_point(st_coordinates(lines)[1,1:2])),crs = 4326)
       points <- rbind(start, points) #bring all points together
-      xy <- as.data.frame(st_coordinates(points))
-      t<- elevation(longitude = xy$X,latitude = xy$Y, key = apikey) # get elevation
+      xy <- as.data.frame(sf::st_coordinates(points))
+      t <- rgbif::elevation(longitude = xy$X,latitude = xy$Y, key = apikey) # get elevation
       #
       incProgress(0.2)
       #
       tmp <- 0
       j <- 1
-      print("start for loop")
-      a <- Sys.time()
       for (i in 1:nrow(points)){
         if (i == 1){
           points$distance[j] <- 0
@@ -132,8 +131,47 @@ server <- function(input, output, session) {
       #
       points$elev <- t$elevation
       points$distance <- cumsum(points$distance)
-      points
+      return(points)
     })
+    } else {
+      if(class(data)[1] == "sf"){ #filter results form routing, if it is routed it is allready a line
+        lines <- sf::st_as_sf(data)
+        st_crs(lines) <- NA
+      } else {
+        lines <- create_lines(data)
+      }
+
+      trip_length <- sp::SpatialLinesLengths(as(lines,"Spatial"))
+      lod <- trip_length/100 # lvl of detail for longer trips
+      if(trip_length < 1) {
+        numOfPoints <- 50
+      } else {
+        numOfPoints  <-  as.numeric(trip_length/lod)
+      }
+      points <- sf::st_line_sample(lines, numOfPoints, type = "regular") #sample points on the line
+      points <- sf::st_sf(geometry = sf::st_cast(sf::st_sfc(points),to = "POINT"),crs = 4326)
+      start <- sf::st_sf(geometry = sf::st_sfc(sf::st_point(st_coordinates(lines)[1,1:2])),crs = 4326)
+      points <- rbind(start, points) #bring all points together
+      xy <- as.data.frame(sf::st_coordinates(points))
+      t <- rgbif::elevation(longitude = xy$X,latitude = xy$Y, key = apikey) # get elevation
+      tmp <- 0
+      j <- 1
+      for (i in 1:nrow(points)){
+        if (i == 1){
+          points$distance[j] <- 0
+        }
+        if (nrow(points)==i){
+          break
+        } else {
+          j <- i +1
+          tmp <- distance(point_a = xy[i,] ,point_b = xy[j,], unit = "m") #faster then with st_length
+          points$distance[j] <- tmp
+        }
+      }
+      points$elev <- t$elevation
+      points$distance <- cumsum(points$distance)
+      return(points)
+    }
   } # coords to lines  + adding elv.
   ##----------------------------------------------------------------------------
   weather <- function(in_data){
@@ -146,47 +184,88 @@ server <- function(input, output, session) {
                                     lon = mid[1], exact = F)
     return(smp_weather)
   }
-  routing <- function(data){
-    withProgress(message = 'Route your trip', value = 0.1, {
+  ##----------------------------------------------------------------------------
+
+  routing <- function(data, shiny_progress,provider,profile,api){
+    if(missing(profile)){
+      profile = ""
+    }
+    if(shiny_progress){
+      withProgress(message = 'Route your trip', value = 0.1, {
+        tmp <- list()
+        for (i in 1:nrow(data)){
+          incProgress(0.05)
+          if(i == nrow(data)){
+            break
+          }
+          if(provider == "cycle"){
+            tmp[[i]] <- route_cyclestreet(from = data[i,] ,to = data[i+1,] ,
+                                          plan = profile, pat = api,
+                                          base_url = "https://www.cyclestreets.net")
+          }
+          else if(provider == "OSM"){
+            tmp[[i]] <- route_osrm(from = data[i,], to = data[i+1,])
+          }
+          else if(provider == "GHopper"){
+            tmp[[i]] <- route_graphhopper(from = data[i,], to = data[i+1,], pat = api,
+                                          vehicle = profile, silent = T ,base_url = "https://graphhopper.com" )
+          }
+          else if(provider == "ORS"){
+            ors_api_key(api)
+            coord1 = data[i,]
+            coord2 = data[i+1,]
+            list_coords = list(c(coord1[,1],coord1[,2]), c(coord2[,1],coord2[,2]))
+
+            tmp[[i]] <- st_sf(geojsonsf::geojson_sf(ors_directions(list_coords,
+                                                                   profile = profile, elevation = F,
+                                                                   format="geojson", parse_output = F))$geometry)
+          }
+        }
+
+        incProgress(0.1)
+
+        route <- do.call(rbind,tmp)
+        if(class(route)[1] != "sf"){
+          route <- sf::st_as_sf(route)
+        }
+        return(route)
+      })
+    } else{
       tmp <- list()
       for (i in 1:nrow(data)){
-        incProgress(0.05)
         if(i == nrow(data)){
           break
         }
-        if(input$route_opt == "cycle"){
+        if(provider == "cycle"){
           tmp[[i]] <- route_cyclestreet(from = data[i,] ,to = data[i+1,] ,
-                                        plan = input$plan, pat = cycle_api,
+                                        plan = profile, pat = api,
                                         base_url = "https://www.cyclestreets.net")
         }
-        else if(input$route_opt == "OSM"){
+        else if(provider == "OSM"){
           tmp[[i]] <- route_osrm(from = data[i,], to = data[i+1,])
         }
-        else if(input$route_opt == "GHopper"){
-          tmp[[i]] <- route_graphhopper(from = data[i,], to = data[i+1,], pat = graph_hopper,
-                                        vehicle = input$graph, silent = T ,base_url = "https://graphhopper.com" )
+        else if(provider == "GHopper"){
+          tmp[[i]] <- route_graphhopper(from = data[i,], to = data[i+1,], pat = api,
+                                        vehicle = profile, silent = T ,base_url = "https://graphhopper.com" )
         }
-        else if(input$route_opt == "ORS"){
-          print(data)
+        else if(provider == "ORS"){
+          ors_api_key(api)
           coord1 = data[i,]
           coord2 = data[i+1,]
           list_coords = list(c(coord1[,1],coord1[,2]), c(coord2[,1],coord2[,2]))
 
           tmp[[i]] <- st_sf(geojsonsf::geojson_sf(ors_directions(list_coords,
-                                     profile = input$ors_plan, elevation = F,
-                                     format="geojson", parse_output = F))$geometry)
+                                                                 profile = profile, elevation = F,
+                                                                 format="geojson", parse_output = F))$geometry)
         }
       }
-
-      incProgress(0.1)
-
       route <- do.call(rbind,tmp)
       if(class(route)[1] != "sf"){
         route <- sf::st_as_sf(route)
       }
       return(route)
-    })
-  } # this is still returning an sp obj.
+    }
+  }
   ##----------------------------------------------------------------------------
   search_plc <- function(instring){
     xy <- geo_code(instring)
@@ -273,7 +352,7 @@ server <- function(input, output, session) {
     p = sf::st_sf(interval = rev(interval) ,geometry =  polys)
     return(p)
   }
-
+  ##----------------------------------------------------------------------------
   iso_create <- function(x,y,range,profile){
     range <- range*60
     t <- c(x,y)
@@ -317,12 +396,15 @@ server <- function(input, output, session) {
       addTiles() %>%
       addDrawToolbar(editOptions = editToolbarOptions(remove = F),singleFeature = T,
                      circleMarkerOptions = F, circleOptions = F,polygonOptions = F,
-                     rectangleOptions = F,markerOptions = F) %>% addProviderTiles(providers$HikeBike.HikeBike) %>%    #HikeBike.HikeBike
+                     rectangleOptions = F,markerOptions = F) %>% addProviderTiles(providers$HikeBike.HikeBike, group ="Hike and Bike Map") %>%
+      addProviderTiles(providers$CartoDB.Positron, group ="Standard") %>%#HikeBike.HikeBike
       mapview::addMouseCoordinates()  %>%
       setView(lng =  search$df[1] , lat = search$df[2],
               zoom =if(input$detail){19} else{12}) %>%
       addCircles(lng = if(input$detail){search$df[1]}else{0},
-                 lat = if(input$detail){search$df[2]}else{0})
+                 lat = if(input$detail){search$df[2]}else{0}) %>%
+      addLayersControl(
+        baseGroups = c("Standard","Hike and Bike Map"))
   })
   # leafmap 2 for in reach
   output$leafmap_reach <- renderLeaflet({
@@ -365,9 +447,9 @@ server <- function(input, output, session) {
       leafletProxy("leafmap_reach", data = reach$df) %>%
         clearShapes() %>% addPolygons( highlightOptions = highlightOptions(bringToFront = T,
                                                                            stroke =T,
-                                                                           weight = 5,
+                                                                           weight = 0,
                                                                            color =  "red"),
-                                       color = "black", weight = 1, fillColor = viridisLite::plasma(4,begin = 0.4,end = 1))
+                                       color = "white" , weight = 0, fillColor = viridisLite::plasma(4,begin = 0.4,end = 1))
     } else {
       in_reach <- FALSE
       leafletProxy("leafmap_reach", data = c()) %>%
@@ -450,7 +532,7 @@ server <- function(input, output, session) {
   # update all stat bars and weather
   observe(if(goUpdate$df){
     print("update")
-    elevPoints$df <- spatial(values$df)
+    elevPoints$df <- spatial(values$df,shiny_progress = T,apikey)
     print("airline height")
     a <- Sys.time()
     height$df <- format(height_diff(elevPoints$df, col = "elev"),digits = 5)
@@ -470,6 +552,14 @@ server <- function(input, output, session) {
   # input routing
   observeEvent(input$routing, {
     print("route!")
+    provider = input$route_opt
+    if(provider == "cycle"){
+      profile = input$plan
+      api = Sys.getenv("cycle_api")
+    } else if(provider == "ORS") {
+      profile = input$ors_plan
+      api = Sys.getenv("ors")
+    }
     routed$df <- TRUE
     if(!is.null(input$string_route) && input$string_route){
       print("string route")
@@ -491,7 +581,7 @@ server <- function(input, output, session) {
         all <- rbind(from, wayp)
         all <- data.frame(rbind(all, to))
         #print(all)
-        tmp_route$df <- routing(all)
+        tmp_route$df <- routing(all, shiny_progress = T, profile = profile ,provider = provider,api)
       } else {
 
         from <- geo_code(input$from)
@@ -500,15 +590,15 @@ server <- function(input, output, session) {
         to <- data.frame(x = to[1], y = to[2])
         data <- rbind(from,to)
 
-        tmp_route$df <- routing(data)
+        tmp_route$df <- routing(data, shiny_progress = T,profile = profile,provider = provider,api)
       }
 
     } else {
       print("draw route")
-      tmp_route$df <- routing(values$df)
+      tmp_route$df <- routing(values$df,shiny_progress = T,profile = profile,provider = provider,api)
       print(tmp_route$df)
     }
-    elevPoints_route$df <- spatial(tmp_route$df)
+    elevPoints_route$df <- spatial(tmp_route$df,shiny_progress = T,apikey)
     print("elev p")
     print(elevPoints_route$df)
   })
