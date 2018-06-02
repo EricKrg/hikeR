@@ -36,7 +36,7 @@ server <- function(input, output, session) {
   routed$df <- FALSE
   goUpdate$df <- FALSE
   reach_tf$df <- FALSE
-  #ui value dynamic panels for all waypoints-------------
+  #ui value dynamic panels for all waypoints------------------------------------
   output$waypoints_panel <- renderUI({
     out <- list()
     for(i in 1:input$waypoints){
@@ -863,16 +863,17 @@ server <- function(input, output, session) {
       if(input$gpx){
         paste("trip", ".gpx", sep = "")
       }  else {
-        paste("trip", ".fit", sep = "")
+        paste("trip", ".kml", sep = "")
       }
 
     },
     content = function(file) {
+      obj = as(tmp_route$df, "Spatial")
       if(input$gpx){
-        writeOGR(obj = tmp_route$df,dsn= file, layer="trip",
+        writeOGR(obj = obj ,dsn= file, layer="trip",
                  dataset_options="GPX_USE_EXTENSIONS=yes",driver="GPX")
       } else {
-        writeOGR(obj = tmp_route$df,dsn= file, layer="trip",driver="KML")
+        writeOGR(obj = obj ,dsn= file, layer="trip",driver="KML")
       }
 
     }
