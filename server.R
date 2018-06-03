@@ -190,8 +190,9 @@ server <- function(input, output, session) {
   ##----------------------------------------------------------------------------
 
   routing <- function(data, shiny_progress,provider,profile,api){
-    if(missing(profile)){
+    if(missing(profile)|missing(api)){
       profile = ""
+      api = ""
     }
     if(shiny_progress){
       withProgress(message = 'Route your trip', value = 0.1, {
@@ -202,11 +203,14 @@ server <- function(input, output, session) {
             break
           }
           if(provider == "cycle"){
+            print("cycle")
             tmp[[i]] <- route_cyclestreet(from = data[i,] ,to = data[i+1,] ,
                                           plan = profile, pat = api,
                                           base_url = "https://www.cyclestreets.net")
           }
           else if(provider == "OSM"){
+            print("route OSM")
+            print(data)
             tmp[[i]] <- route_osrm(from = data[i,], to = data[i+1,])
           }
           else if(provider == "GHopper"){
@@ -214,6 +218,7 @@ server <- function(input, output, session) {
                                           vehicle = profile, silent = T ,base_url = "https://graphhopper.com" )
           }
           else if(provider == "ORS"){
+            print("ORS")
             ors_api_key(api)
             coord1 = data[i,]
             coord2 = data[i+1,]
@@ -233,7 +238,7 @@ server <- function(input, output, session) {
         }
         return(route)
       })
-    } else{
+    } else{ #outside shiny app
       tmp <- list()
       for (i in 1:nrow(data)){
         if(i == nrow(data)){
@@ -395,20 +400,22 @@ server <- function(input, output, session) {
   # mapping --------
   # base leaflet with search function
   output$leafmap <- renderLeaflet({
+
     leaflet() %>%
       addTiles() %>%
       addDrawToolbar(editOptions = editToolbarOptions(remove = F),singleFeature = T,
                      circleMarkerOptions = F, circleOptions = F,polygonOptions = F,
                      rectangleOptions = F,markerOptions = F) %>% addProviderTiles(providers$HikeBike.HikeBike, group ="Hike and Bike Map") %>%
-      addProviderTiles(providers$CartoDB.Positron, group ="Standard") %>%#HikeBike.HikeBike
+      addProviderTiles(providers$Hydda.Full, group ="Standard") %>%#HikeBike.HikeBike
       mapview::addMouseCoordinates()  %>%
       setView(lng =  search$df[1] , lat = search$df[2],
               zoom =if(input$detail){19} else{12}) %>%
-      addCircles(lng = if(input$detail){search$df[1]}else{0},
-                 lat = if(input$detail){search$df[2]}else{0}) %>%
       addLayersControl(
-        baseGroups = c("Standard","Hike and Bike Map"))
+        baseGroups = c("Standard","Hike and Bike Map")) %>%
+      addCircleMarkers(lng = search$df[1],
+                 lat = search$df[2],radius = 20,stroke = F,fillColor = viridisLite::inferno(1,begin = 0.5))
   })
+
   # leafmap 2 for in reach
   # sync both maps
   observeEvent(input$leafmap_bounds,{
@@ -427,16 +434,33 @@ server <- function(input, output, session) {
       addTiles() %>%
       addDrawToolbar(editOptions = editToolbarOptions(remove = F),singleFeature = T,
                      circleMarkerOptions = T, circleOptions = F,polygonOptions = F,
-                     rectangleOptions = F,markerOptions = F,polylineOptions = F) %>% addProviderTiles(providers$CartoDB.DarkMatter) %>%    #HikeBike.HikeBike
+                     rectangleOptions = F,markerOptions = F,polylineOptions = F) %>%
+      addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
+      addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
       mapview::addMouseCoordinates()  %>%
       setView(lng =  x_sync$df , lat = y_sync$df,
               zoom =if(input$detail){19} else{zoom_sync$df}) %>%
-      addCircles(lng = if(input$detail){search$df[1]}else{0},
-                 lat = if(input$detail){search$df[2]}else{0})
+      addCircleMarkers(lng = search$df[1],
+                       lat = search$df[2],radius = 20,stroke = F,
+                       fillColor = viridisLite::inferno(1, begin = 0.5)) %>%
+      addLayersControl(
+        baseGroups = c("Dark","Light"))
   })
   # map the routed trip --> map tmp_route
   observe({
     if(!is.null(tmp_route$df)){
+      if(round(pKm$df[1,4]) < 15){
+        zoom = 13
+      }
+      else if(round(pKm$df[1,4]) > 15 & round(pKm$df[1,4]) < 40){
+        zoom = 11
+      }
+      else if(round(pKm$df[1,4]) > 40 & round(pKm$df[1,4]) < 150){
+        zoom = 9
+      }
+      else {
+        zoom = 7
+      }
       view <- st_as_sf(tmp_route$df) %>%
         st_centroid() %>%
         st_coordinates()
@@ -447,7 +471,7 @@ server <- function(input, output, session) {
                                                                            stroke =T,
                                                                            weight = 5,
                                                                            color =  "red")) %>%
-        setView(lng = view[,1],lat = view[,2] , zoom = 12)
+        setView(lng = view[,1],lat = view[,2] , zoom = zoom)
     } else {
       leafletProxy("leafmap", data = c()) %>%
         clearShapes()
@@ -464,7 +488,16 @@ server <- function(input, output, session) {
                                                                            stroke =T,
                                                                            weight = 0,
                                                                            color =  "red"),
-                                       color = "white" , weight = 0, fillColor = viridisLite::plasma(4,begin = 0.4,end = 1))
+                                       color = "white" , weight = 0,
+                                       fillColor = viridisLite::plasma(4,begin = 0.4,end = 1),
+                                       group = "Dark") %>%
+        addPolygons( highlightOptions = highlightOptions(bringToFront = T,
+                                                         stroke =T,
+                                                         weight = 0,
+                                                         color =  "red"),
+                     color = "white" , weight = 0,
+                     fillColor = viridisLite::viridis(4,begin = 0.4,end = 1),
+                     group = "Light")
     } else {
       in_reach <- FALSE
       leafletProxy("leafmap_reach", data = c()) %>%
@@ -563,6 +596,9 @@ server <- function(input, output, session) {
     } else if(provider == "ORS") {
       profile = input$ors_plan
       api = Sys.getenv("ors")
+    } else { #osm
+      profile = ""
+      api = ""
     }
     routed$df <- TRUE
     if(!is.null(input$string_route) && input$string_route){
@@ -579,20 +615,20 @@ server <- function(input, output, session) {
           tmp[[j]] <- geo_code(input[[i]])
           j <- j + 1
         }
-        wayp <- do.call(rbind,tmp)
+        wayp <- data.frame(do.call(rbind,tmp))
         from <- geo_code(input$from)
         to <- geo_code(input$to)
         all <- rbind(from, wayp)
         all <- data.frame(rbind(all, to))
-        #print(all)
+        print("route more")
         tmp_route$df <- routing(all, shiny_progress = T, profile = profile ,provider = provider,api)
       } else {
 
         from <- geo_code(input$from)
         to <- geo_code(input$to)
-        from <- data.frame(x = from[1], y = from[2])
-        to <- data.frame(x = to[1], y = to[2])
-        data <- rbind(from,to)
+        #from <- data.frame(x = from[1], y = from[2])
+        #to <- data.frame(x = to[1], y = to[2])
+        data <- data.frame(rbind(from,to))
 
         tmp_route$df <- routing(data, shiny_progress = T,profile = profile,provider = provider,api)
       }
@@ -603,8 +639,7 @@ server <- function(input, output, session) {
       print(tmp_route$df)
     }
     elevPoints_route$df <- spatial(tmp_route$df,shiny_progress = T,apikey)
-    print("elev p")
-    print(elevPoints_route$df)
+
   })
   # end of routing event
 

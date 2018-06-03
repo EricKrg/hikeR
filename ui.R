@@ -153,7 +153,7 @@ dashboardPage(dashboardHeader(disable = T),
                                                         conditionalPanel(condition ="input.leafmap_draw_new_feature || input.string_route",
                                                                          radioGroupButtons(inputId = "route_opt",
                                                                                            label = "Routing providers",
-                                                                                           choices = c("cycle","OSM", "ORS"), # "GHopper"- api not wokring anymore
+                                                                                           choices = c("cycle", "ORS"), # "GHopper"- api not wokring anymore, OSM left out not working
                                                                                            checkIcon = list(yes = tags$i(class = "fa fa-check-square",
                                                                                                                          style = "color: steelblue"),
                                                                                                             no = tags$i(class = "fa fa-square-o",
