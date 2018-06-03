@@ -7,4 +7,16 @@ A shiny application in order to ease up planning for the next hiking or bike tri
 ## to deploy the application, download repo and start it locally - for graphhopper and cyclestreets.net routing a api key is required
 
 ![App deck](./figures/screen1.png)
+
+## Main features:
+
+# Routing:
+![App deck](./figures/routing.png)
+
+# Elevation
+
 ![3D_plot](./figures/screen2.png)
+
+# In reach
+
+![App deck](./figures/in_reach.png)
