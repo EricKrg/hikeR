@@ -24,6 +24,6 @@ A shiny application in order to ease up planning for the next hiking or bike tri
 ![3D_plot](./figures/screen2.png)
 
 ### In reach
-- pin a point an the map an get reachability output based on travel time and moving style
+- pin a point on the map an get reachability output based on travel time and moving style
 
 ![App deck](./figures/in_reach.PNG)
