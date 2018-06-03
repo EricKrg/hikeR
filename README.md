@@ -11,7 +11,7 @@ A shiny application in order to ease up planning for the next hiking or bike tri
 ## Main features:
 
 # Routing:
-![App deck](./figures/routing.png)
+![App deck](./figures/routing.PNG)
 
 # Elevation
 
@@ -19,4 +19,4 @@ A shiny application in order to ease up planning for the next hiking or bike tri
 
 # In reach
 
-![App deck](./figures/in_reach.png)
+![App deck](./figures/in_reach.PNG)
