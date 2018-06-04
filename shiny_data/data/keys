@@ -1,8 +1,0 @@
-
-
-Sys.setenv(apikey = "AIzaSyAB6DJYmiY-82HLSgo0CLCDeZ9h2p6l9xY")
-Sys.setenv(cycle_api = "8e9f2ec7f09a1ff4")
-Sys.setenv(graph_hopper = "170ca04c-aef5-4efc-9691-ec8325d934ef")
-Sys.setenv(openweathermap = "5ce4b83bdb700f5077e1d3cf039851e7")
-
-save.image(file='Env.RData')
