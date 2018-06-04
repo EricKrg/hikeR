@@ -7,4 +7,23 @@ A shiny application in order to ease up planning for the next hiking or bike tri
 ## to deploy the application, download repo and start it locally - for graphhopper and cyclestreets.net routing a api key is required
 
 ![App deck](./figures/screen1.png)
+
+## Main features:
+
+### Routing:
+- route by drawing the airline distance on the map (multiple points possible)
+- route by adress (multiple adresses possible)
+- multiple routing providers with diffrents routing styles for cycling and hiking
+
+![App deck](./figures/routing.PNG)
+
+### Elevation
+- draw a 2d or 3d elevation profile
+- calc. vertical distance and performance kilometers
+
 ![3D_plot](./figures/screen2.png)
+
+### In reach
+- pin a point on the map an get reachability output based on travel time and moving style
+
+![App deck](./figures/in_reach.PNG)
