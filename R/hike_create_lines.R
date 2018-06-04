@@ -28,3 +28,30 @@ hike_distance <- function(point_a, point_b, unit){
     return(distance)
   }
 }
+
+#'
+#' redundant fun
+#'
+#' @export
+hike_search_plc <- function(instring){
+  xy <- geo_code(instring)
+}
+
+#'
+#' height difference
+#' @param  points with elev data, col = specify elev. data column
+#' @return calc. height difference in m
+#' @export
+#
+hike_height_diff <- function(elev_points, col){
+  if(is.null(elev_points) & missing(col)){ return(tmp <- 0)}
+  st_geometry(elev_points) <- NULL
+  tmp <- 0
+  for (i in 1:nrow(elev_points)){
+    if(i == nrow(elev_points)){
+      return(tmp)
+      break
+    }
+    tmp <- tmp + abs(elev_points[i,col] - elev_points[i+1,col])
+  }
+}
