@@ -671,7 +671,11 @@ server <- function(input, output, session) {
 
   # elevation-------------------------------------------------------------------
   # height info box (black)
+<<<<<<< HEAD
   source("shiny_data/modules/elev_box.R")
+=======
+  source("modules/elev_box.R")
+>>>>>>> eca280e0e17bd2477c54ae97e0ce8e0e70e19602
   observeEvent(elevPoints$df,{
     elevP = elevPoints$df
     h <- height_diff(elevP,col = "elev")
@@ -693,7 +697,11 @@ server <- function(input, output, session) {
     if(!is.null(pKm$df)){ traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)}
   })
   #plot outputs here -----------------------------------------------------------
+<<<<<<< HEAD
   source("shiny_data/modules/elev_plot.R")
+=======
+  source("modules/elev_plot.R")
+>>>>>>> eca280e0e17bd2477c54ae97e0ce8e0e70e19602
   observeEvent({elevPoints$df
                input$twoD},{
     output$plot <- plot_air(elevPoints$df, values$df, input$twoD)})
