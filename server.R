@@ -1,5 +1,5 @@
 
-# constant like vars.
+# constant like vars. and api keys
 
 apikey <- Sys.getenv("apikey")
 cycle_api <- Sys.getenv("cycle_api")
@@ -38,7 +38,7 @@ server <- function(input, output, session) {
   reach_tf$df <- FALSE
   #dynamic panels---------------------------------------------------------------
 
-  source("modules/dynamic_ui.R")
+  source("shiny_data/modules/dynamic_ui.R")
   observeEvent(input$waypoints,{
   output$waypoints_panel <- waypoints(input$waypoints)
   })
@@ -266,6 +266,7 @@ server <- function(input, output, session) {
 
   }
   height_diff <- function(elev_points, col){
+    if(is.null(elev_points) & missing(col)){ return(tmp <- 0)}
     st_geometry(elev_points) <- NULL
     tmp <- 0
     for (i in 1:nrow(elev_points)){
@@ -657,7 +658,7 @@ server <- function(input, output, session) {
 
 
   # weather---------------------------------------------------------------------
-  source("modules/weather_module.R")
+  source("shiny_data/modules/weather_module.R")
   observeEvent(weatherdata$df,{
     output$weather <-weather_mod(weatherdata$df)
     output$percip <- percip(weatherdata$df)
@@ -670,113 +671,37 @@ server <- function(input, output, session) {
 
   # elevation-------------------------------------------------------------------
   # height info box (black)
-  output$heightbox <- renderValueBox ({
-    if(!is.null(height$df)){
-      print(height$df)
-      height_diff = floor(as.numeric(height$df[1]))
-    } else {
-      height_diff = 0
-    }
-    valueBox(subtitle = "height difference", icon =icon("flag"),
-             color = "black", value =paste0(height_diff, "m"))
+  source("shiny_data/modules/elev_box.R")
+  observeEvent(elevPoints$df,{
+    elevP = elevPoints$df
+    h <- height_diff(elevP,col = "elev")
+    output$heightbox <- heigth_mod(h)
+    output$max <- max_box(elevP)
+    output$min <- min_box(elevP)
+    })
+
+  observeEvent(elevPoints_route$df,{
+    elevP = elevPoints_route$df
+    h <- height_diff(elevP,col = "elev")
+    output$heightbox <- heigth_mod(h)
+    output$max <- max_box(elevP)
+    output$min <- min_box(elevP)
 
   })
-  output$max <- renderValueBox ({
-    if(!is.null(elevPoints$df)){
-      elev <- elevPoints$df
-      st_geometry(elev) = NULL
-      elev <- floor(max(elev[,2]))
-    } else {
-      elev = 0
-    }
-    valueBox(subtitle = "Max. height", icon =icon("flag"),
-             color = "black", value =paste0(elev, "m"))
-
-  })
-  output$min <- renderValueBox ({
-    if(!is.null(elevPoints$df)){
-      elev <- elevPoints$df
-      st_geometry(elev) = NULL
-      elev <- floor(min(elev[,2]))
-    } else {
-      elev = 0
-    }
-    valueBox(subtitle = "Min. height", icon =icon("flag"),
-             color = "black", value =paste0(elev, "m"))
-  })
-
+  #travel time here ------------------------------------------------------------
   output$traveltime <- renderTable({
-    traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)
+    if(!is.null(pKm$df)){ traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)}
   })
+  #plot outputs here -----------------------------------------------------------
+  source("shiny_data/modules/elev_plot.R")
+  observeEvent({elevPoints$df
+               input$twoD},{
+    output$plot <- plot_air(elevPoints$df, values$df, input$twoD)})
+  observeEvent({elevPoints_route$df
+    input$twoDr},{
+  output$plot_route <- plot_route(elevPoints_route$df,tmp_route$df, input$twoDr)})
 
-  #plot outputs start here -----------------
-  output$plot <- renderPlotly({
-    withProgress(message = 'Creating plot, be patient', value = 0.1, {
-      if(is.null(values$df)){
-        print("empty elev")
-        p <- ggplot()
-      }
-      else if(input$twoD){
-        print("airline elev 2d")
-        coords <- st_coordinates(elevPoints$df)
-        elevPoints$df$x <- coords[,1]
-        elevPoints$df$y <- coords[,2]
-        p <- plot_ly(elevPoints$df, x = ~distance, y = ~elev,
-                     type = 'area', mode = 'lines',color = ~elev,
-                     text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
-          add_trace(hoverinfo = 'none')
-      }
-      else {
-        a <- Sys.time()
-        coords <- st_coordinates(elevPoints$df)
-        elevPoints$df$x <- coords[,1]
-        elevPoints$df$y <- coords[,2]
-        incProgress(0.5)
-        p <- plot_ly(elevPoints$df, x = ~x, y =  ~y, z = ~elev,
-                     type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
-                     text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
-          add_trace(hoverinfo = 'none')
-        print(Sys.time()-a)
-        print("3d airline")
-        incProgress(0.3)
-      }
-      return(p)
-    })
-  }) #airline
-  output$plot_route <- renderPlotly({
-    withProgress(message = 'Creating plot, be patient', value = 0.1, {
-      if(is.null(tmp_route$df)){
-        print("empty route")
-        p <- ggplot()
-      }
-      else if(input$twoDr){
-        coords <- st_coordinates(elevPoints_route$df)
-        elevPoints_route$df$x <- coords[,1]
-        elevPoints_route$df$y <- coords[,2]
-        p <- plot_ly(elevPoints_route$df, x = ~distance, y = ~elev,
-                     type = 'area', mode = 'lines',color = ~elev,
-                     text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
-          add_trace(hoverinfo = 'none')
-      }
-      else {
-        a <- Sys.time()
-        coords <- st_coordinates(elevPoints_route$df)
-        elevPoints_route$df$x <- coords[,1]
-        elevPoints_route$df$y <- coords[,2]
-        incProgress(0.5)
-        p <- plot_ly(elevPoints_route$df, x = ~x, y = ~y, z = ~elev,
-                     type = 'scatter3d', mode = 'lines',color = ~elev, source = "routed",
-                     text = ~paste0(round(elev,digits = 2), "m"),hoverinfo = "text") %>%
-          add_trace(hoverinfo = 'none')
-        print(Sys.time()-a)
-        print("3d route")
-        incProgress(0.3)
-      }
-      return(p)
-    })
-  }) #routed
-
-  #import and export----
+  #import and export------------------------------------------------------------
   ##download
   output$downloadData <- downloadHandler(
     filename = function() {
