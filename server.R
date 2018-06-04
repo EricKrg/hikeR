@@ -36,29 +36,15 @@ server <- function(input, output, session) {
   routed$df <- FALSE
   goUpdate$df <- FALSE
   reach_tf$df <- FALSE
-  #ui value dynamic panels for all waypoints------------------------------------
-  output$waypoints_panel <- renderUI({
-    out <- list()
-    for(i in 1:input$waypoints){
-      out[[i]] <- textInput(inputId = paste0("to",i),label = "waypoints",placeholder = "Adress")
-    }
-    return(div(out))
-  })
-  output$download <- renderUI({
-    if(!is.null(tmp_route$df)){
-      dwn <- column(width = 4,box(width = NULL, title = "Download",
-                                  solidHeader = T,background = "black",
-                                  switchInput(width = 12,inputId = "gpx",
-                                              onLabel = "GPX", offLabel = "KML",
-                                              label =icon("save")),
-                                  downloadButton("downloadData", "Download")))
-      return(div(dwn))
-    } else {
-      dwn <- box(width = NULL, solidHeader = T, background = "black")
-      return(div(dwn))
-    }
-  })  #render the ui dynamically#render the ui dynamically
+  #dynamic panels---------------------------------------------------------------
 
+  source("modules/dynamic_ui.R")
+  observeEvent(input$waypoints,{
+  output$waypoints_panel <- waypoints(input$waypoints)
+  })
+  observe(if(class(tmp_route$df)[1] == "sf"){
+    output$download <- download(tmp_route$df)}
+    else{output$download <- download(tmp_route$df)})
 
   #functions -------------------------------------------------------------------
   # turn into package
@@ -418,6 +404,7 @@ server <- function(input, output, session) {
 
   # leafmap 2 for in reach
   # sync both maps
+
   observeEvent(input$leafmap_bounds,{
       x_sync$df = (input$leafmap_bounds$east + input$leafmap_bounds$west)/2
       y_sync$df = (input$leafmap_bounds$north + input$leafmap_bounds$south)/2
@@ -435,8 +422,8 @@ server <- function(input, output, session) {
       addDrawToolbar(editOptions = editToolbarOptions(remove = F),singleFeature = T,
                      circleMarkerOptions = T, circleOptions = F,polygonOptions = F,
                      rectangleOptions = F,markerOptions = F,polylineOptions = F) %>%
-      addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
       addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
+      addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
       mapview::addMouseCoordinates()  %>%
       setView(lng =  x_sync$df , lat = y_sync$df,
               zoom =if(input$detail){19} else{zoom_sync$df}) %>%
@@ -444,7 +431,7 @@ server <- function(input, output, session) {
                        lat = search$df[2],radius = 20,stroke = F,
                        fillColor = viridisLite::inferno(1, begin = 0.5)) %>%
       addLayersControl(
-        baseGroups = c("Dark","Light"))
+        baseGroups = c("Light", "Dark"))
   })
   # map the routed trip --> map tmp_route
   observe({
@@ -669,121 +656,19 @@ server <- function(input, output, session) {
   })
 
 
-  # weather-----------------
-  output$temp <- renderValueBox ({
-    if(is.null(weatherdata$df)){
-      valueBox(
-        subtitle = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
-        color = "olive"
-      )
-    } else {
-      mtemp <- paste0(weatherdata$df[4,"minTemperature"]," / ",weatherdata$df[4,"maxTemperature"])
-      if(weatherdata$df[4,5] < 0){
-        valueBox(
-          subtitle = "min/max - Cold",value = mtemp,icon = icon("thermometer-empty "),
-          color = "teal"
-        )
-      }
-      else if(weatherdata$df[4,6] > 25){
-        valueBox(
-          subtitle = "min/max - Hot",value = mtemp,icon = icon("thermometer-three-quarters"),
-          color = "red"
-        )
-      } else {
-        valueBox(
-          subtitle = "min/max - Regular",value = mtemp,icon = icon("thermometer-quarter"),
-          color = "lime"
-        )
-      }
-    }
+  # weather---------------------------------------------------------------------
+  source("modules/weather_module.R")
+  observeEvent(weatherdata$df,{
+    output$weather <-weather_mod(weatherdata$df)
+    output$percip <- percip(weatherdata$df)
+    output$temp <- temp(weatherdata$df)
   })
-  output$percip <- renderValueBox ({
-    if(is.null(weatherdata$df)){
-      valueBox(
-        subtitle = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
-        color = "olive"
-      )
-    } else {
-      percip <- sum(subset(weatherdata$df,interval == "6")[,4])
-      if(percip > 0){
-        valueBox(
-          subtitle = "Precipitation",paste0(percip,"mm "),icon = icon("tint"),
-          color = "aqua"
-        )
-      } else {
-        valueBox(
-          subtitle = "no Precipitation",paste0(0, "mm "),
-          color = "green"
-        )
-      }
-    }
-  })
-  output$weather <- renderValueBox ({
-    if(is.null(weatherdata$df)){
-      valueBox(
-        subtitle = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
-        color = "olive"
-      )
-    } else {
-      if(weatherdata$df[4,7] %in% c("Sun")){
-        valueBox(
-          subtitle = "Weather condition",weatherdata$df[4,7],icon = icon("certificate",lib = "glyphicon"),
-          color = "yellow"
-        )
-      }
-      else if(weatherdata$df[4,7] %in% c("LightCloud","PartlyCloud","Cloud")){
-        valueBox(
-          subtitle = "Weather condition", icon = icon("cloud"),
-          color = "light-blue", value = weatherdata$df[4,7]
-        )
-      }
-      else if(weatherdata$df[4,7] %in% c("LightRainSun","LightRainThunderSun","LightRain","Rain","RainThunder","RainSun")){
-        valueBox(
-          subtitle = "Weather condition", icon = icon("tint"),
-          color = "light-blue", value = weatherdata$df[4,7]
-        )
-      }
-      else if(weatherdata$df[4,7] %in% c("Fog")){
-        valueBox(
-          subtitle = "Weather condition", icon = icon("align-justify "),
-          color = "navy", value = weatherdata$df[4,7]
-        )
-      }
-      else if(weatherdata$df[4,7] %in% c("SleetThunder",
-                                         "DrizzleThunderSun",
-                                         "RainThunderSun",
-                                         "LightSleetThunderSun",
-                                         "HeavySleetThunderSun",
-                                         "LightSnowThunderSun",
-                                         "HeavySnowThunderSun",
-                                         "DrizzleThunder",
-                                         "LightSleetThunder",
-                                         "HeavySleetThunder",
-                                         "LightSnowThunder",
-                                         "HeavySnowThunder")){
-        valueBox(
-          subtitle = "Weather condition",icon = icon("bolt"),
-          color = "red", value = weatherdata$df[4,7]
-        )
-      }
-      else if(weatherdata$df[4,7] %in% c("DrizzleSun","Drizzle")){
-        valueBox(
-          subtitle = "Weather condition", icon = icon("braille"),
-          color = "purple", value = weatherdata$df[4,7]
-        )
-      }
-      else {
-        valueBox(
-          subtitle = "Weather condition", icon =icon("asterisk", lib = "glyphicon"),
-          color = "teal", value =weatherdata$df[4,7]
-        )
-      }
-    }
-  })
-  output$weather2 <- renderTable({
-    weatherdata$df <- weather(values$df)
-    return(weatherdata$df[4,])
-  })
+  # output$weather2 <- renderTable({
+  #   weatherdata$df <- weather(values$df)
+  #   return(weatherdata$df[4,])
+  # })
+
+  # elevation-------------------------------------------------------------------
   # height info box (black)
   output$heightbox <- renderValueBox ({
     if(!is.null(height$df)){
