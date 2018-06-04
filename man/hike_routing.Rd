@@ -7,10 +7,10 @@
 hike_routing(data, shiny_progress, provider, profile, api)
 }
 \arguments{
-\item{data}{frame of coords, shiny progress, profile and api}
+\item{dataframe}{of coords, shiny progress (bool), profile and api}
 }
 \value{
-return simple weather forecast by coords
+returns sf linestring
 }
 \description{
 routing
