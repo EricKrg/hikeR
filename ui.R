@@ -25,7 +25,16 @@ require(rgdal)
 require(raster)
 require(shinycssloaders)
 require(openrouteservice)
-require(hikeR)
+#require(hikeR)
+
+
+source("R/hike_create_lines.R")
+source("R/hike_iso.R")
+source("R/hike_pKm.R")
+source("R/hike_routing.R")
+source("R/hike_spatial.R")
+source("R/hike_weather.R")
+
 # constant like vars.
 help <- TRUE
 height_stats <- FALSE

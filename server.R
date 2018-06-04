@@ -8,9 +8,7 @@ openweathermap <- Sys.getenv("openweathermap")
 ors_api_key(Sys.getenv("ors"))
 help <- TRUE
 
-
 # Define server logic
-
 
 server <- function(input, output, session) {
   # reactive values-------------------------------------------------------------
@@ -40,7 +38,7 @@ server <- function(input, output, session) {
 
   source("shiny_data/modules/dynamic_ui.R")
   observeEvent(input$waypoints,{
-  output$waypoints_panel <- waypoints(input$waypoints)})
+    output$waypoints_panel <- waypoints(input$waypoints)})
   #downloads
   observeEvent(tmp_route$df,{
     output$download <- download(tmp_route$df)})
@@ -68,7 +66,7 @@ server <- function(input, output, session) {
       search$df <- hikeR::hike_search_plc(input$search)
       search2$df <- search$df
     }
-    weatherdata$df <- weather(search$df)
+    weatherdata$df <- hikeR::hike_weather(search$df)
 
   })
 
@@ -88,16 +86,16 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = c("Standard","Hike and Bike Map")) %>%
       addCircleMarkers(lng = search$df[1],
-                 lat = search$df[2],radius = 20,stroke = F,fillColor = viridisLite::inferno(1,begin = 0.5))
+                       lat = search$df[2],radius = 20,stroke = F,fillColor = viridisLite::inferno(1,begin = 0.5))
   })
 
   # leafmap 2 for in reach
   # sync both maps
 
   observeEvent(input$leafmap_bounds,{
-      x_sync$df = (input$leafmap_bounds$east + input$leafmap_bounds$west)/2
-      y_sync$df = (input$leafmap_bounds$north + input$leafmap_bounds$south)/2
-      zoom_sync$df = input$leafmap_zoom
+    x_sync$df = (input$leafmap_bounds$east + input$leafmap_bounds$west)/2
+    y_sync$df = (input$leafmap_bounds$north + input$leafmap_bounds$south)/2
+    zoom_sync$df = input$leafmap_zoom
 
   })
   observeEvent(input$search,{
@@ -224,7 +222,7 @@ server <- function(input, output, session) {
     x <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[2]]
     y <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[1]]
     reach$df <- hikeR::iso_create(y,x,range,profile)
-    })
+  })
 
   # updated for airline trip
   observeEvent(input$leafmap_draw_all_features,{
@@ -248,7 +246,7 @@ server <- function(input, output, session) {
   # update all stat bars and weather
   observe(if(goUpdate$df){
     print("update")
-    elevPoints$df <- spatial(values$df,shiny_progress = T,apikey)
+    elevPoints$df <- hikeR::hike_spatial_elev(values$df,shiny_progress = T,apikey)
     print("airline height")
     a <- Sys.time()
     height$df <- format(hikeR::hike_height_diff(elevPoints$df, col = "elev"),digits = 5)
@@ -261,7 +259,7 @@ server <- function(input, output, session) {
     updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
     updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
     print("weather df")
-    weatherdata$df <- weather(elevPoints$df)
+    weatherdata$df <- hikeR::hike_weather(elevPoints$df)
     goUpdate$df <- FALSE
   })
 
@@ -312,9 +310,9 @@ server <- function(input, output, session) {
     } else {
       print("draw route")
       tmp_route$df <- hikeR::hike_routing(values$df,shiny_progress = T,profile = profile,provider = provider,api)
-      print(tmp_route$df)
+      #print(tmp_route$df)
     }
-    elevPoints_route$df <- spatial(tmp_route$df,shiny_progress = T,apikey)
+    elevPoints_route$df <- hikeR::hike_spatial_elev(tmp_route$df,shiny_progress = T,apikey)
 
   })
   # end of routing event
@@ -340,7 +338,7 @@ server <- function(input, output, session) {
 
   observe(if(goweather$df){
     print("route weather extra")
-    weatherdata$df <- weather(elevPoints_route$df)
+    weatherdata$df <- hikeR::hike_weather(elevPoints_route$df)
     goweather$df <- FALSE
   })
 
@@ -366,7 +364,7 @@ server <- function(input, output, session) {
     output$heightbox <- heigth_mod(h)
     output$max <- max_box(elevP)
     output$min <- min_box(elevP)
-    })
+  })
 
   observeEvent(elevPoints_route$df,{
     elevP = elevPoints_route$df
@@ -385,11 +383,11 @@ server <- function(input, output, session) {
   source("shiny_data/modules/elev_plot.R")
 
   observeEvent({elevPoints$df
-               input$twoD},{
-    output$plot <- plot_air(elevPoints$df, values$df, input$twoD)})
+    input$twoD},{
+      output$plot <- plot_air(elevPoints$df, values$df, input$twoD)})
   observeEvent({elevPoints_route$df
     input$twoDr},{
-  output$plot_route <- plot_route(elevPoints_route$df,tmp_route$df, input$twoDr)})
+      output$plot_route <- plot_route(elevPoints_route$df,tmp_route$df, input$twoDr)})
 
   #import and export------------------------------------------------------------
   ##download
