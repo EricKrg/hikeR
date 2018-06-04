@@ -25,7 +25,7 @@ require(rgdal)
 require(raster)
 require(shinycssloaders)
 require(openrouteservice)
-
+require(hikeR)
 # constant like vars.
 help <- TRUE
 height_stats <- FALSE
