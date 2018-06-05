@@ -339,6 +339,8 @@ server <- function(input, output, session) {
   # weather---------------------------------------------------------------------
   source("shiny_data/modules/weather_module.R")
   observeEvent(weatherdata$df,{
+    #print(weatherdata$df)
+    #print(weatherdata$df[1,])
     output$weather <-weather_mod(weatherdata$df)
     output$percip <- percip(weatherdata$df)
     output$temp <- temp(weatherdata$df)

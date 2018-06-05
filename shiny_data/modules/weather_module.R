@@ -13,7 +13,7 @@ weather_mod <- function(weatherd){
         color = "olive"
       )
     } else {
-      w_con <- as.character(weatherd["weather_id"])
+      w_con <- weatherd[1,"weather_id"]
       if(w_con %in% c("Sun")){
         valueBox(
           subtitle = "Weather condition",w_con,icon = icon("certificate",lib = "glyphicon"),
