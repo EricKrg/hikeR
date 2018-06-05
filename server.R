@@ -343,10 +343,6 @@ server <- function(input, output, session) {
     output$percip <- percip(weatherdata$df)
     output$temp <- temp(weatherdata$df)
   })
-  # output$weather2 <- renderTable({
-  #   weatherdata$df <- weather(values$df)
-  #   return(weatherdata$df[4,])
-  # })
 
   # elevation-------------------------------------------------------------------
   # height info box (black)
