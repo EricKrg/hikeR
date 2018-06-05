@@ -1,12 +1,8 @@
-
-#'
 #' trannsformation function --> geojson from ors to sf
 #'
 #' @param  geojson from ors pckg to sf (only isochrones)
 #' @return sf polygon
 #' @export
-
-
 hike_iso2sf = function(obj){ #only for iso polygons in
   interval = c()
   k = 1
@@ -37,8 +33,6 @@ hike_iso2sf = function(obj){ #only for iso polygons in
 #' @param  num coords, range, and profile(moving style)
 #' @return sf polygon
 #' @export
-
-
 hike_iso_create <- function(x,y,range,profile){
   range <- range*60
   t <- c(x,y)

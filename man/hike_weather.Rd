@@ -7,11 +7,15 @@
 hike_weather(in_data)
 }
 \arguments{
-\item{in}{coords}
+\item{in_data}{- point coords to retrive weather info}
 }
 \value{
 return simple weather forecast by coords
 }
 \description{
 weather
+}
+\examples{
+a <- stplanr::geo_code("Jena")
+hikeR::hike_weather(a)
 }

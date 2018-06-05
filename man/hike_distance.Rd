@@ -2,16 +2,31 @@
 % Please edit documentation in R/hike_create_lines.R
 \name{hike_distance}
 \alias{hike_distance}
-\title{distance}
+\title{distance calculation}
 \usage{
 hike_distance(point_a, point_b, unit)
 }
 \arguments{
-\item{a}{to b, unit}
+\item{unit}{- km or m}
+
+\item{a}{- num. coords}
+
+\item{b}{- num. coords}
 }
 \value{
-calc. the distance between to points
+calc. the distance between two points
 }
 \description{
-distance
+distance calculation
+}
+\examples{
+a <- stplanr::geo_code("Jena")
+b <- stplanr::geo_code("Weimar")
+a_to_b <- data.frame(rbind(a,b))
+hike_distance(a_to_b[1,],a_to_b[2,], "m")
+or
+hike_distance(a,b, "m")
+}
+\author{
+Eric Krueger
 }

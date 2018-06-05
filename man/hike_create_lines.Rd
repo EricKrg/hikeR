@@ -2,16 +2,26 @@
 % Please edit documentation in R/hike_create_lines.R
 \name{hike_create_lines}
 \alias{hike_create_lines}
-\title{create lines
- @param df with coords
- @return create a line from multiple input coords
- @export}
+\title{create_lines function}
 \usage{
 hike_create_lines(data)
 }
+\arguments{
+\item{df}{with coords}
+}
+\value{
+create a sf linestring from multiple input coords
+}
 \description{
-create lines
- @param df with coords
- @return create a line from multiple input coords
- @export
+create_lines function
+}
+\examples{
+a <- stplanr::geo_code("Jena")
+b <- stplanr::geo_code("Weimar")
+a_to_b <- data.frame(rbind(a,b))
+line <- hikeR::hike_create_lines(a_to_b)
+class(line)
+}
+\author{
+Eric Krueger
 }

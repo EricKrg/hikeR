@@ -7,11 +7,20 @@
 hike_height_diff(elev_points, col)
 }
 \arguments{
-\item{points}{with elev data, col = specify elev. data column}
+\item{col}{- column with elevation}
+
+\item{points}{- sf points}
 }
 \value{
 calc. height difference in m
 }
 \description{
 height difference
+}
+\examples{
+a <- stplanr::geo_code("Jena")
+b <- stplanr::geo_code("Weimar")
+a_to_b <- data.frame(rbind(a,b))
+elev_p <- hikeR::hike_spatial_elev(a_to_b,shiny_progress = F,apikey = Sys.getenv("apikey"))
+hike_height_diff(elev_p,col = "elev")
 }

@@ -6,6 +6,12 @@
 \usage{
 hike_search_plc(instring)
 }
+\arguments{
+\item{searchterm}{- string}
+}
+\value{
+coords of searchterm
+}
 \description{
 redundant fun
 }
