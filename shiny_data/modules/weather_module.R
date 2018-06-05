@@ -13,31 +13,31 @@ weather_mod <- function(weatherd){
         color = "olive"
       )
     } else {
-      if(weatherd[4,7] %in% c("Sun")){
+      if(weatherd[7] %in% c("Sun")){
         valueBox(
           subtitle = "Weather condition",weatherd[4,7],icon = icon("certificate",lib = "glyphicon"),
           color = "yellow"
         )
       }
-      else if(weatherd[4,7] %in% c("LightCloud","PartlyCloud","Cloud")){
+      else if(weatherd[7] %in% c("LightCloud","PartlyCloud","Cloud")){
         valueBox(
           subtitle = "Weather condition", icon = icon("cloud"),
-          color = "light-blue", value = weatherd[4,7]
+          color = "light-blue", value = weatherd[7]
         )
       }
-      else if(weatherd[4,7] %in% c("LightRainSun","LightRainThunderSun","LightRain","Rain","RainThunder","RainSun")){
+      else if(weatherd[7] %in% c("LightRainSun","LightRainThunderSun","LightRain","Rain","RainThunder","RainSun")){
         valueBox(
           subtitle = "Weather condition", icon = icon("tint"),
-          color = "light-blue", value = weatherd[4,7]
+          color = "light-blue", value = weatherd[7]
         )
       }
-      else if(weatherd[4,7] %in% c("Fog")){
+      else if(weatherd[7] %in% c("Fog")){
         valueBox(
           subtitle = "Weather condition", icon = icon("align-justify "),
-          color = "navy", value = weatherd[4,7]
+          color = "navy", value = weatherd[7]
         )
       }
-      else if(weatherd[4,7] %in% c("SleetThunder",
+      else if(weatherd[7] %in% c("SleetThunder",
                                          "DrizzleThunderSun",
                                          "RainThunderSun",
                                          "LightSleetThunderSun",
@@ -51,19 +51,19 @@ weather_mod <- function(weatherd){
                                          "HeavySnowThunder")){
         valueBox(
           subtitle = "Weather condition",icon = icon("bolt"),
-          color = "red", value = weatherd[4,7]
+          color = "red", value = weatherd[7]
         )
       }
-      else if(weatherd[4,7] %in% c("DrizzleSun","Drizzle")){
+      else if(weatherd[7] %in% c("DrizzleSun","Drizzle")){
         valueBox(
           subtitle = "Weather condition", icon = icon("braille"),
-          color = "purple", value = weatherd[4,7]
+          color = "purple", value = weatherd[7]
         )
       }
       else {
         valueBox(
           subtitle = "Weather condition", icon =icon("asterisk", lib = "glyphicon"),
-          color = "teal", value =weatherd[4,7]
+          color = "teal", value =weatherd[7]
         )
       }
     }
@@ -78,7 +78,7 @@ percip <- function(weatherd){
         color = "olive"
       )
     } else {
-      percip <- sum(subset(weatherd,interval == "6")[,4])
+      percip <- sum(subset(weatherd,interval == "6")[4])
       if(percip > 0){
         valueBox(
           subtitle = "Precipitation",paste0(percip,"mm "),icon = icon("tint"),
@@ -102,14 +102,14 @@ temp <- function(weatherd){
         color = "olive"
       )
     } else {
-      mtemp <- paste0(weatherd[4,"minTemperature"]," / ",weatherd[4,"maxTemperature"])
-      if(weatherd[4,5] < 0){
+      mtemp <- paste0(weatherd["minTemperature"]," / ",weatherd["maxTemperature"])
+      if(weatherd[5] < 0){
         valueBox(
           subtitle = "min/max - Cold",value = mtemp,icon = icon("thermometer-empty "),
           color = "teal"
         )
       }
-      else if(weatherd[4,6] > 25){
+      else if(weatherd[6] > 25){
         valueBox(
           subtitle = "min/max - Hot",value = mtemp,icon = icon("thermometer-three-quarters"),
           color = "red"

@@ -25,52 +25,12 @@ require(rgdal)
 require(raster)
 require(shinycssloaders)
 require(openrouteservice)
-#require(hikeR)
+require(hikeR)
 
-
-source("R/hike_create_lines.R")
-source("R/hike_iso.R")
-source("R/hike_pKm.R")
-source("R/hike_routing.R")
-source("R/hike_spatial.R")
-source("R/hike_weather.R")
 
 # constant like vars.
 help <- TRUE
 height_stats <- FALSE
-
-#style funs
-progressBar2 <- function (id, value, total = NULL, display_pct = FALSE, size = NULL,
-                          status = NULL, striped = FALSE, title = NULL)
-{
-  if (is.null(total)) {
-    percent <- value
-  }
-  else {
-    percent <- value
-  }
-  if (!is.null(title) | !is.null(total)) {
-    title <- htmltools::tags$span(class = "progress-text",
-                                  title, htmltools::HTML("&nbsp;"))
-
-  }
-  if (is.null(total)) {
-    total <- htmltools::tags$span(class = "progress-number",
-                                  htmltools::tags$b(value, id = paste0(id, "-value")))
-
-  }
-  tagPB <- htmltools::tags$div(class = "progress-group", title,
-                               total, htmltools::tags$div(class = if (!is.null(size))
-                                 paste("progress", size)
-                                 else "progress", htmltools::tags$div(id = id, style = if (percent >
-                                                                                           0)
-                                   paste0("width:",percent, "%;"), style = if (display_pct)
-                                     "min-width: 2em;", class = "progress-bar", class = if (!is.null(status))
-                                       paste0("progress-bar-", status), class = if (striped)
-                                         "progress-bar-striped", role = "progressbar", if (display_pct)
-                                           paste0(percent, "%"))))
-
-}
 
 
 # Define UI for application that draws a histogram
@@ -126,18 +86,18 @@ dashboardPage(dashboardHeader(disable = T),
                                     fluidRow(
                                       tabBox(width = NULL,
                                              tabPanel(icon = icon("tasks"),title = "Trip data",
-                                                      progressBar2(title = "performance Kilometer (km)" ,id = "pKm",value = 0, status = "danger",
+                                                      hikeR::hike_progressBar(title = "performance Kilometer (km)" ,id = "pKm",value = 0, status = "danger",
                                                                    display_pct = TRUE),
-                                                      progressBar2(title = "horizontal distance (km)", id = "flat",value = 0, status = "info",
+                                                      hikeR::hike_progressBar(title = "horizontal distance (km)", id = "flat",value = 0, status = "info",
                                                                    display_pct = TRUE),
-                                                      progressBar2(title = "vertical up (m)" ,id = "up",value = 0, status = "info",
+                                                      hikeR::hike_progressBar(title = "vertical up (m)" ,id = "up",value = 0, status = "info",
                                                                    display_pct = TRUE),
-                                                      progressBar2(title = "vertical down (m)", id = "down",value = 0, status = "info",
+                                                      hikeR::hike_progressBar(title = "vertical down (m)", id = "down",value = 0, status = "info",
                                                                    display_pct = TRUE)
                                              ),
-                                             tabPanel(icon = icon("caret-up"),"Airline", plotly::plotlyOutput("plot",width = NULL),
+                                             tabPanel(icon = icon("caret-up"),"Airline", withSpinner(plotly::plotlyOutput("plot",width = NULL),type = 6, color = "black"),
                                                       switchInput("twoD",label = "2D",value = FALSE)),
-                                             tabPanel(icon = icon("caret-up"),"Route", withSpinner(plotly::plotlyOutput("plot_route"),type = 6),
+                                             tabPanel(icon = icon("caret-up"),"Route", withSpinner(plotly::plotlyOutput("plot_route"),type = 6, color = "black"),
                                                       switchInput("twoDr",label = "2D",value = FALSE)),
                                              tabPanel(title = "Trip coords.",icon = icon("map-marker"),
                                                       tableOutput("data"))

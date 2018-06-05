@@ -186,14 +186,12 @@ server <- function(input, output, session) {
       leafletProxy("leafmap", data = eventdata) %>%
         removeShape("p") %>%
         addCircles(lng = eventdata[,3],lat = eventdata[,4] ,
-                   color = "red",radius = 20, fill = "red",layerId = "p", weight = 1) %>%
+                   color = "red",radius = 80, fill = "red",layerId = "p", weight = 1) %>%
         setView(lng = eventdata[,3],lat = eventdata[,4] ,zoom = 14)
     }
   })
-  # map events end here --------------
-
-  # input data starts here -----------
-
+  # map events end here --------------------------------------------------------
+  # input data starts here -----------------------------------------------------
 
   # New Feature-------------
   # null bars if new feature
@@ -221,7 +219,7 @@ server <- function(input, output, session) {
     profile <- input$reach_plan
     x <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[2]]
     y <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[1]]
-    reach$df <- hikeR::iso_create(y,x,range,profile)
+    reach$df <- hikeR::hike_iso_create(y,x,range,profile)
   })
 
   # updated for airline trip
@@ -236,9 +234,6 @@ server <- function(input, output, session) {
         y[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[1]]
       }
       values$df <- data.frame(x = y , y = x) #mixed it up
-      print("see")
-      print(values$df)
-      print(class(values$df))
       goUpdate$df <- TRUE
     }
   })
@@ -246,11 +241,9 @@ server <- function(input, output, session) {
   # update all stat bars and weather
   observe(if(goUpdate$df){
     print("update")
-    elevPoints$df <- hikeR::hike_spatial_elev(values$df,shiny_progress = T,apikey)
+    elevPoints$df <- hikeR::hike_spatial_elev(data = values$df,shiny_progress = T,apikey = apikey)
     print("airline height")
-    a <- Sys.time()
     height$df <- format(hikeR::hike_height_diff(elevPoints$df, col = "elev"),digits = 5)
-    print(Sys.time()- a)
     print("airline pkm")
     pKm$df <- hikeR::hike_performance_km(elevPoints$df,col="elev",tmp_route = tmp_route$df ,routed = routed$df)
     pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
