@@ -16,5 +16,5 @@ hike_app <- function(elevation_api,cycle_api,graph_hopper_api,ors_api){
   Sys.setenv(cycle_api = cycle_api)
   Sys.setenv(graph_hopper = graph_hopper_api)
   Sys.setenv(ors = ors_api)
-  shiny::shinyAppDir(appDir = system.file(".", package = "hikeR"))
+  shiny::shinyAppDir(appDir = system.file("app", package = "hikeR"))
 }
