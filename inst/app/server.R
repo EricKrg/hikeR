@@ -47,14 +47,14 @@ server <- function(input, output, session) {
     output$download <- download(tmp_route$df)})
 
   #outputs----------------------------------------------------------------------
-  observeEvent(help, {
-    sendSweetAlert(
-      session = session,
-      title = "Information",
-      text = includeText("./test.txt"),
-      type = "info"
-    )
-  }) #help page
+  # observeEvent(help, {
+  #   sendSweetAlert(
+  #     session = session,
+  #     title = "Information",
+  #     text = includeText("./test.txt"),
+  #     type = "info"
+  #   )
+  # }) #help page
 
   #Base map functions, map events start here
 
