@@ -7,7 +7,7 @@
 #' @param  ors_api - open route service api
 #' @examples
 #' hikeR::hike_app(elevation_api,cycle_api,ors_api)
-#'@export
+#' @export
 hike_app <- function(elevation_api,cycle_api,graph_hopper_api,ors_api){
   if(missing(graph_hopper_api)){
     graph_hopper_api = ""
