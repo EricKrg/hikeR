@@ -35,7 +35,6 @@ server <- function(input, output, session) {
   goUpdate$df <- FALSE
   reach_tf$df <- FALSE
   #dynamic panels---------------------------------------------------------------
-
   source("./inst/modules/dynamic_ui.R")
   observeEvent(input$waypoints,{
     output$waypoints_panel <- waypoints(input$waypoints)})
@@ -277,7 +276,6 @@ server <- function(input, output, session) {
       if(input$more){
         tmp_route$df <- NULL
         wayp_list <- data.frame(name = paste0("to",1:input$waypoints))
-        #print(wayp_list)
         j = 1
         tmp <- list()
         for(i in wayp_list$name){
@@ -368,7 +366,6 @@ server <- function(input, output, session) {
     if(!is.null(pKm$df)){ hikeR::hike_traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)}
   })
   #plot outputs here -----------------------------------------------------------
-
   source("./inst/modules/elev_plot.R")
   observeEvent({elevPoints$df
     input$twoD},{
