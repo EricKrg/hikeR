@@ -35,7 +35,7 @@ server <- function(input, output, session) {
   goUpdate$df <- FALSE
   reach_tf$df <- FALSE
   #dynamic panels---------------------------------------------------------------
-  source("./inst/modules/dynamic_ui.R")
+  source("./modules/dynamic_ui.R")
   observeEvent(input$waypoints,{
     output$waypoints_panel <- waypoints(input$waypoints)})
   #downloads
@@ -335,7 +335,7 @@ server <- function(input, output, session) {
 
 
   # weather---------------------------------------------------------------------
-  source("./inst/modules/weather_module.R")
+  source("./modules/weather_module.R")
   observeEvent(weatherdata$df,{
     output$weather <-weather_mod(weatherdata$df)
     output$percip <- percip(weatherdata$df)
@@ -344,7 +344,7 @@ server <- function(input, output, session) {
 
   # elevation-------------------------------------------------------------------
   # height info box (black)
-  source("./inst/modules/elev_box.R")
+  source("./modules/elev_box.R")
   observeEvent(elevPoints$df,{
     elevP = elevPoints$df
     h <- hikeR::hike_height_diff(elevP,col = "elev")
@@ -366,7 +366,7 @@ server <- function(input, output, session) {
     if(!is.null(pKm$df)){ hikeR::hike_traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)}
   })
   #plot outputs here -----------------------------------------------------------
-  source("./inst/modules/elev_plot.R")
+  source("./modules/elev_plot.R")
   observeEvent({elevPoints$df
     input$twoD},{
       output$plot <- plot_air(elevPoints$df, values$df, input$twoD)})
