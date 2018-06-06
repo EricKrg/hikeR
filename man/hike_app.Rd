@@ -18,9 +18,6 @@ hike_app(elevation_api, cycle_api, graph_hopper_api, ors_api)
 \description{
 run app
 }
-<<<<<<< HEAD
 \examples{
 hikeR::hike_app(elevation_api,cycle_api,ors_api)
 }
-=======
->>>>>>> 75da34c43f2171faf0ab93b0851cf503ec0fc4b2
