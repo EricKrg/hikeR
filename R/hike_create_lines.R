@@ -56,9 +56,16 @@ hike_distance <- function(point_a, point_b, unit){
 #' @return coords of searchterm
 #' @export
 hike_search_plc <- function(instring){
-  xy <- geo_code(instring)
+  t <- tryCatch({
+  xy <- geo_code(instring, service = "google", pat = "AIzaSyA3Yu4yyRu5-p8vst9okuQqCJYjJdSguZg")
+  },
+  error=function(cond) {
+    message("adress not valid")
+    no = TRUE
+  })
+  return(t)
 }
-
+ex <- hike_search_plc("Jenvsc")
 #'
 #' height difference
 #' @param points - sf points
