@@ -36,7 +36,7 @@ server <- function(input, output, session) {
   reach_tf$df <- FALSE
   #dynamic panels---------------------------------------------------------------
 
-  source("shiny_data/modules/dynamic_ui.R")
+  source("inst/modules/dynamic_ui.R")
   observeEvent(input$waypoints,{
     output$waypoints_panel <- waypoints(input$waypoints)})
   #downloads
@@ -44,6 +44,39 @@ server <- function(input, output, session) {
     output$download <- download(tmp_route$df)})
   observeEvent(input$leafmap_draw_new_feature,{
     output$download <- download(tmp_route$df)})
+
+
+  scrape_pic <- function(searchTerm){
+    run = T
+    while(run){
+    url <- paste0("https://de.wikipedia.org/wiki/",searchTerm)
+    doc <- paste0(readr::read_lines(url), collapse="\n")
+    result <- stringr::str_extract_all(string = as.character(doc),
+                                       pattern = "\\/\\/upload.wikimedia.org\\/wikipedia\\/commons\\/thumb\\/.*?jpg.*?[jpg]{3}")
+    if(nchar(doc) < 1){
+      url <- paste0("https://en.wikipedia.org/wiki/",searchTerm)
+      doc <- paste0(readr::read_lines(url), collapse="\n")
+      result <- stringr::str_extract_all(string = as.character(doc),
+                                         pattern = "\\/\\/upload.wikimedia.org\\/wikipedia\\/commons\\/thumb\\/.*?jpg.*?[jpg]{3}")
+    }
+    else{
+      run = F
+    }
+    }
+    j = 1
+    result_list <- c()
+    n = 1
+      for(i in 1:5){
+
+          result_list[n] <- paste0("https://", result[[1]][j])
+          j = j + 4
+          n = n + 1
+        }
+    return(result_list)
+
+  }
+  observeEvent(search$df,{
+  output$pic_box <- pic_box(scrape_pic(input$search), input$search)})
 
   #outputs----------------------------------------------------------------------
   observeEvent(help, {
@@ -58,16 +91,26 @@ server <- function(input, output, session) {
   #Base map functions, map events start here
 
   # search observer
-  observe({
+  observeEvent(input$search,{
     print(input$search)
     if(nchar(input$search)==0){
       search$df <- search2$df # stops app from crashing when clearing prev. search
     } else {
       search$df <- hikeR::hike_search_plc(input$search)
-      search2$df <- search$df
-    }
-    weatherdata$df <- hikeR::hike_weather(search$df)
+      print(search$df)
+      if(search$df == TRUE){
+        search$df <- search2$df
+        sendSweetAlert(
+            session = session,
+            title = "Error...",
+            text = paste0(input$search, " is not a Valid adress"),
+            type = "error"
+          )
 
+      }
+      search2$df <- search$df
+      weatherdata$df <- hikeR::hike_weather(search$df)
+    }
   })
 
   # mapping --------
@@ -337,7 +380,7 @@ server <- function(input, output, session) {
 
 
   # weather---------------------------------------------------------------------
-  source("shiny_data/modules/weather_module.R")
+  source("inst//modules/weather_module.R")
   observeEvent(weatherdata$df,{
     output$weather <-weather_mod(weatherdata$df)
     output$percip <- percip(weatherdata$df)
@@ -346,7 +389,7 @@ server <- function(input, output, session) {
 
   # elevation-------------------------------------------------------------------
   # height info box (black)
-  source("shiny_data/modules/elev_box.R")
+  source("inst/modules/elev_box.R")
   observeEvent(elevPoints$df,{
     elevP = elevPoints$df
     h <- hikeR::hike_height_diff(elevP,col = "elev")
@@ -369,7 +412,7 @@ server <- function(input, output, session) {
   })
   #plot outputs here -----------------------------------------------------------
 
-  source("shiny_data/modules/elev_plot.R")
+  source("inst/modules/elev_plot.R")
 
   observeEvent({elevPoints$df
     input$twoD},{
@@ -401,6 +444,7 @@ server <- function(input, output, session) {
     }
   )
   # header boxes------
+
   output$main <- renderInfoBox({
     infoBox(value = "hikeR",title = "Plan your trip with",icon = icon("pagelines"),fill = T,
             color = "olive")

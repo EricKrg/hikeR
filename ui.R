@@ -26,12 +26,12 @@ require(raster)
 require(shinycssloaders)
 require(openrouteservice)
 require(hikeR)
-
+require(shinydashboardPlus)
 
 # constant like vars.
 help <- TRUE
 height_stats <- FALSE
-
+useSweetAlert()
 
 # Define UI for application that draws a histogram
 
@@ -39,15 +39,37 @@ dashboardPage(dashboardHeader(disable = T),
               dashboardSidebar(disable = T),
               dashboardBody(
                 fluidRow(
-                  #box(title ="hikeR",solidHeader = T,background = "black",width = 12)),
-                  infoBoxOutput("main",width = 10), infoBoxOutput("git",width = 2)),
+                  widgetUserBox(
+                    width = 10,
+                    title = "hikeR",
+                    subtitle = "ease up planning",
+                    type = 2,
+                    src = "",
+                    background = TRUE,
+                    backgroundUrl = "https://cloud.githubusercontent.com/assets/4129613/5349240/263d90da-7ef4-11e4-8352-1d13e15506c5.jpg",
+                    #closable = TRUE,
+                    collapsible = F
+                  ), infoBoxOutput("git",width = 2)),
                 fluidRow(
                   column(width = 12,
                          box(width = NULL,solidHeader = TRUE,
+
                              searchInput(width = NULL,"search","Search Region", placeholder = "City or Region",
                                          value = "Jena" ,
                                          btnSearch = icon("search"),
                                          btnReset = icon("remove")),
+                             accordion(
+                             accordionItem(
+                               id = 1,
+                               title = "Impressions",
+                               color = "black",
+                               solidHeader = T,
+                               collapsed = T,
+                               uiOutput("pic_box")
+                             )),
+
+
+
                              # selectizeInput("test", "label",choices= state.name ,selected = NULL,  multiple = F,
                              #                options = list(maxOptions = 2)),
                              materialSwitch(inputId = "detail", label = "Jump to street level", status = "danger"),
@@ -63,7 +85,9 @@ dashboardPage(dashboardHeader(disable = T),
                                )
                              ),
                              fluidRow(
-                               box(collapsible = T,collapsed = T,solidHeader = T,width = 12,title = "In reach Input",
+                                boxPlus(label_text = "open",closable = F,enable_label = TRUE,
+                                       label_status = "danger",collapsible = T,
+                                       collapsed = T,solidHeader = F,width = 12,title = "In reach Input",
                                    background = "black",
                                    sliderInput(inputId = "reach_time",label = "Travel time (min)",min = 1,
                                                max = 120,value = 5),
