@@ -1,7 +1,7 @@
 library(shiny)
 library(shinyWidgets)
 library(shinydashboard)
-
+library(shinydashboardPlus)
 ## download button if routed
 download <- function(tmp_route){
   renderUI({
@@ -30,3 +30,27 @@ waypoints <- function(wayp){
     return(div(out))
   })
 }
+
+pic_box <- function(term_src, search){
+  renderUI({
+
+    userList(
+    userListItem(
+      src = term_src[1],
+      user_name = search
+  ),
+    userListItem(
+      src = term_src[2],
+      user_name = search
+    ),
+    userListItem(
+      src = term_src[3],
+      user_name = search
+    ),
+    userListItem(
+      src = term_src[4],
+      user_name = search
+    ))
+  })
+}
+
