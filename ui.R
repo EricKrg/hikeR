@@ -35,69 +35,58 @@ useSweetAlert()
 
 # Define UI for application that draws a histogram
 
-dashboardPage(dashboardHeader(disable = T),
+dashboardPage(
+              dashboardHeader(disable = T),
               dashboardSidebar(disable = T),
               dashboardBody(
+                tags$head(tags$style(HTML('.info-box {min-height: 45px;} .info-box-icon {height: 45px; line-height: 45px;} .info-box-content {padding-top: 0px; padding-bottom: 0px;}'))),
                 fluidRow(
                   widgetUserBox(
-                    width = 10,
+                    width = 12,
                     title = "hikeR",
                     subtitle = "ease up planning",
                     type = 2,
                     src = "",
                     background = TRUE,
-                    backgroundUrl = "https://cloud.githubusercontent.com/assets/4129613/5349240/263d90da-7ef4-11e4-8352-1d13e15506c5.jpg",
-                    #closable = TRUE,
-                    collapsible = F
-                  ), infoBoxOutput("git",width = 2)),
+                    backgroundUrl = "https://farm2.staticflickr.com/1492/25965397430_9b4403eecd_k.jpg",#https://cloud.githubusercontent.com/assets/4129613/5349240/263d90da-7ef4-11e4-8352-1d13e15506c5.jpg",
+                    collapsed = T,
+                    collapseball = T, boxToolSize = "xs",
+                    socialButton(type = "github", url = "https://github.com/EricKrg/hikeR"),
+                    socialButton(type = "twitter", url = "https://twitter.com/Eric_krg"), "made by Eric Krueger"
+                  )),
                 fluidRow(
                   column(width = 12,
                          box(width = NULL,solidHeader = TRUE,
-
                              searchInput(width = NULL,"search","Search Region", placeholder = "City or Region",
                                          value = "Jena" ,
                                          btnSearch = icon("search"),
                                          btnReset = icon("remove")),
-                             accordion(
-                             accordionItem(
-                               id = 1,
-                               title = "Impressions",
-                               color = "black",
-                               solidHeader = T,
-                               collapsed = T,
+                             boxPlus(label_text = "open",closable = F,enable_label = TRUE,
+                                     label_status = "danger",collapsible = T, status = "danger",
+                                     collapsed = T,solidHeader = F,width = 6,title = "Impressions",
+                                     #background = "black",
                                uiOutput("pic_box")
-                             )),
-
-
-
-                             # selectizeInput("test", "label",choices= state.name ,selected = NULL,  multiple = F,
-                             #                options = list(maxOptions = 2)),
-                             materialSwitch(inputId = "detail", label = "Jump to street level", status = "danger"),
-                             fluidRow(
-                               column(width = 4,
-                                      valueBoxOutput("weather",width = NULL)
-                               ),
-                               column(width = 4,
-                                      valueBoxOutput("percip", width = NULL)
-                               ),
-                               column(width = 4,
-                                      valueBoxOutput("temp", width = NULL)
-                               )
                              ),
+                             boxPlus(label_text = "open",closable = F,enable_label = TRUE,
+                                     label_status = "danger",collapsible = T, status = "danger",
+                                     collapsed = T,solidHeader = F,width = 6,title = "Weather",
                              fluidRow(
-                                boxPlus(label_text = "open",closable = F,enable_label = TRUE,
-                                       label_status = "danger",collapsible = T,
-                                       collapsed = T,solidHeader = F,width = 12,title = "In reach Input",
-                                   background = "black",
-                                   sliderInput(inputId = "reach_time",label = "Travel time (min)",min = 1,
-                                               max = 120,value = 5),
-                                   radioGroupButtons(inputId = "reach_plan",
-                                                     label = "Moving style",
-                                                     choices = c("cycling-regular" , "cycling-road" ,
-                                                                 "cycling-safe" , "cycling-mountain" ,
-                                                                 "cycling-tour" , "foot-walking" ,
-                                                                 "foot-hiking"),
-                                                     status = "danger", selected = "cycling-regular")
+
+                                      infoBoxOutput("weather",width = NULL)
+                               ),
+                            fluidRow(
+
+                                      infoBoxOutput("temp", width = NULL)
+                               ),
+                            fluidRow(
+
+                                      infoBoxOutput("percip", width = NULL)
+                               ),
+                            fluidRow(
+                                      infoBoxOutput("wind", width = NULL)
+                               ),
+                            fluidRow(
+                                      infoBoxOutput("hum", width = NULL)
                                )
                              ),
                              column(width = 7,
@@ -105,7 +94,8 @@ dashboardPage(dashboardHeader(disable = T),
                                     tabPanel(icon = icon("location-arrow"),title = "Routing",
                                     leafletOutput("leafmap",height = 700)),
                                     tabPanel(icon = icon("compass"),title = "In reach",
-                                             leafletOutput("leafmap_reach",height = 700)))),
+                                             leafletOutput("leafmap_reach",height = 700))),
+                                    materialSwitch(inputId = "detail", label = "Jump to street level", status = "danger")),
                              column(width = 5,
                                     fluidRow(
                                       tabBox(width = NULL,
@@ -130,6 +120,22 @@ dashboardPage(dashboardHeader(disable = T),
                                     fluidRow(
                                       box(collapsible = T,solidHeader = T,width = 12, background = "black",
                                           valueBoxOutput("max"), valueBoxOutput("min"), valueBoxOutput("heightbox"))),
+                                    fluidRow(
+                                      boxPlus(label_text = "open",closable = F,enable_label = TRUE,
+                                              label_status = "danger",collapsible = T,
+                                              collapsed = T,solidHeader = F,width = 12,title = "In reach Input",
+                                              background = "black",
+                                              sliderInput(inputId = "reach_time",label = "Travel time (min)",min = 1,
+                                                          max = 120,value = 5),
+                                              radioGroupButtons(inputId = "reach_plan",
+                                                                label = "Moving style",
+                                                                choices = c("cycling-regular" , "cycling-road" ,
+                                                                            "cycling-safe" , "cycling-mountain" ,
+                                                                            "cycling-tour" , "foot-walking" ,
+                                                                            "foot-hiking"),
+                                                                status = "danger", selected = "cycling-regular")
+                                      )
+                                    ),
                                     fluidRow(
                                       column(width = 12,
                                              box(solidHeader = T,background = "black", width = NULL,title = "Routing",

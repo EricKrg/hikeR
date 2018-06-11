@@ -50,7 +50,9 @@ pic_box <- function(term_src, search){
     userListItem(
       src = term_src[4],
       user_name = search
-    ))
+    ),
+  paste0("https://de.wikipedia.org/wiki/", search)
+  )
   })
 }
 
