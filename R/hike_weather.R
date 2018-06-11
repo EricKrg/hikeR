@@ -14,6 +14,9 @@ hike_weather <- function(in_data){
   }
   smp_weather <- weatherr::locationforecast(lat = mid[2],
                                   lon = mid[1], exact = F)
-  return(smp_weather[4,])
+  smp_weather2 <- weatherr::locationforecast(lat = mid[2],
+                                            lon = mid[1], exact = T)
+  weather <- cbind(smp_weather[4,], wind_spd = smp_weather2$windSpeed_mps[1], humidity = smp_weather2$humidity[1])
+  return(weather)
 }
 
