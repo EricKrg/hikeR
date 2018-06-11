@@ -6,35 +6,35 @@ library(shinydashboard)
 
 
 weather_mod <- function(weatherd){
-    renderValueBox ({
+    renderInfoBox ({
     if(is.null(weatherd)){
-      valueBox(
-        subtitle = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
+      infoBox(
+        title = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
         color = "olive"
       )
     } else {
       w_con <- weatherd[1,"weather_id"]
       if(w_con %in% c("Sun")){
-        valueBox(
-          subtitle = "Weather condition",w_con,icon = icon("certificate",lib = "glyphicon"),
+        infoBox(
+          title = "Weather condition",w_con,icon = icon("certificate",lib = "glyphicon"),
           color = "yellow"
         )
       }
       else if(w_con %in% c("LightCloud","PartlyCloud","Cloud")){
-        valueBox(
-          subtitle = "Weather condition", icon = icon("cloud"),
+        infoBox(
+          title = "Weather condition", icon = icon("cloud"),
           color = "light-blue", value = w_con
         )
       }
       else if(w_con %in% c("LightRainSun","LightRainThunderSun","LightRain","Rain","RainThunder","RainSun")){
-        valueBox(
-          subtitle = "Weather condition", icon = icon("tint"),
+        infoBox(
+          title = "Weather condition", icon = icon("tint"),
           color = "light-blue", value = w_con
         )
       }
       else if(w_con %in% c("Fog")){
-        valueBox(
-          subtitle = "Weather condition", icon = icon("align-justify "),
+        infoBox(
+          title = "Weather condition", icon = icon("align-justify "),
           color = "navy", value = w_con
         )
       }
@@ -50,20 +50,20 @@ weather_mod <- function(weatherd){
                                          "HeavySleetThunder",
                                          "LightSnowThunder",
                                          "HeavySnowThunder")){
-        valueBox(
-          subtitle = "Weather condition",icon = icon("bolt"),
+        infoBox(
+          title = "Weather condition",icon = icon("bolt"),
           color = "red", value = w_con
         )
       }
       else if(w_con %in% c("DrizzleSun","Drizzle")){
-        valueBox(
-          subtitle = "Weather condition", icon = icon("braille"),
+        infoBox(
+          title = "Weather condition", icon = icon("braille"),
           color = "purple", value = w_con
         )
       }
       else {
-        valueBox(
-          subtitle = "Weather condition", icon =icon("asterisk", lib = "glyphicon"),
+        infoBox(
+          title = "Weather condition", icon =icon("asterisk", lib = "glyphicon"),
           color = "teal", value =w_con
         )
       }
@@ -72,22 +72,22 @@ weather_mod <- function(weatherd){
 }
 #-------------------------------------------------------------------------------
 percip <- function(weatherd){
-    renderValueBox ({
+    renderInfoBox ({
     if(is.null(weatherd)){
-      valueBox(
-        subtitle = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
+      infoBox(
+        title = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
         color = "olive"
       )
     } else {
       percip <- sum(subset(weatherd,interval == "6")[4])
       if(percip > 0){
-        valueBox(
-          subtitle = "Precipitation",paste0(percip,"mm "),icon = icon("tint"),
+        infoBox(
+          title = "Precipitation",paste0(percip,"mm "),icon = icon("tint"),
           color = "aqua"
         )
       } else {
-        valueBox(
-          subtitle = "no Precipitation",paste0(0, "mm "),
+        infoBox(
+          title = "no Precipitation",paste0(0, "mm "), icon = icon("tint"),
           color = "green"
         )
       }
@@ -96,10 +96,10 @@ percip <- function(weatherd){
 }
 #-------------------------------------------------------------------------------
 temp <- function(weatherd){
-  renderValueBox ({
+  renderInfoBox ({
     if(is.null(weatherd)){
-      valueBox(
-        subtitle = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
+      infoBox(
+        title = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
         color = "olive"
       )
     } else {
@@ -107,22 +107,75 @@ temp <- function(weatherd){
                       weatherd[1,"maxTemperature"])
 
       if(weatherd[1,5] < 0){
-        valueBox(
-          subtitle = "min/max - Cold",value = mtemp,icon = icon("thermometer-empty "),
+        infoBox(
+          title = "min/max - Cold",value = mtemp,icon = icon("thermometer-empty "),
           color = "teal"
         )
       }
       else if(weatherd[1,6] > 25){
-        valueBox(
-          subtitle = "min/max - Hot",value = mtemp,icon = icon("thermometer-three-quarters"),
+        infoBox(
+          title = "min/max - Hot",value = mtemp,icon = icon("thermometer-three-quarters"),
           color = "red"
         )
       } else {
-        valueBox(
-          subtitle = "min/max - Regular",value = mtemp,icon = icon("thermometer-quarter"),
-          color = "lime"
+        infoBox(
+          title = "min/max - Regular",value = mtemp,icon = icon("thermometer-quarter"),
+          color = "green"
         )
       }
     }
   })
 }
+
+windspd <- function(weatherd){
+  renderInfoBox ({
+    if(is.null(weatherd)){
+      infoBox(
+        title = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
+        color = "olive"
+      )
+    } else {
+      wind <- weatherd[1,"wind_spd"]
+      if( wind <= 0){
+        infoBox(
+          title = "wind spd. m/s",value = wind,icon = icon("flag "),
+          color = "yellow"
+        )}
+      else {
+        infoBox(
+          title = "wind spd. m/s",value = wind,icon = icon("flag "),
+          color = "orange"
+        )}
+    }
+    })
+  }
+
+humiditiy <- function(weatherd){
+  renderInfoBox ({
+    if(is.null(weatherd)){
+      infoBox(
+        title = "Draw/load a path for weather data",value = NA,icon = icon("thermometer-empty "),
+        color = "olive"
+      )
+    }
+    else {
+      hum <- as.numeric(weatherd[1,"humidity"])
+      if( hum <= 20){
+        infoBox(
+          title = "humidity %",value = hum,icon = icon("align-justify"),
+          color = "teal"
+        )}
+      else if(hum >= 50 & hum <=70){
+        infoBox(
+          title = "humidity %",value = hum,icon = icon("align-justify"),
+          color = "teal"
+        )}
+      else if(hum > 70){
+        infoBox(
+          title = "humidity %",value = hum,icon = icon("align-justify"),
+          color = "teal"
+        )}
+    }
+  })
+}
+
