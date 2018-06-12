@@ -30,29 +30,18 @@ waypoints <- function(wayp){
     return(div(out))
   })
 }
-
+#-------------------------------------------------------------------------------
 pic_box <- function(term_src, search){
   renderUI({
+    out <- list()
+    for (i in 1:length(term_src)){
+      out[[i]] <- userListItem(
+        src = term_src[[i]],
+        user_name = search
+      )
+    }
+    return(div(userList(out)))
 
-    userList(
-    userListItem(
-      src = term_src[1],
-      user_name = search
-  ),
-    userListItem(
-      src = term_src[2],
-      user_name = search
-    ),
-    userListItem(
-      src = term_src[3],
-      user_name = search
-    ),
-    userListItem(
-      src = term_src[4],
-      user_name = search
-    ),
-  paste0("https://de.wikipedia.org/wiki/", search)
-  )
   })
 }
 
