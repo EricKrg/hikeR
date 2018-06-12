@@ -37,6 +37,7 @@ server <- function(input, output, session) {
   #dynamic panels---------------------------------------------------------------
 
   source("inst/modules/dynamic_ui.R")
+  #waypoints in adress route
   observeEvent(input$waypoints,{
     output$waypoints_panel <- waypoints(input$waypoints)})
   #downloads
@@ -44,41 +45,12 @@ server <- function(input, output, session) {
     output$download <- download(tmp_route$df)})
   observeEvent(input$leafmap_draw_new_feature,{
     output$download <- download(tmp_route$df)})
-
-
-  scrape_pic <- function(searchTerm){
-    run = T
-    while(run){
-    url <- paste0("https://de.wikipedia.org/wiki/",searchTerm)
-    doc <- paste0(readr::read_lines(url), collapse="\n")
-    result <- stringr::str_extract_all(string = as.character(doc),
-                                       pattern = "\\/\\/upload.wikimedia.org\\/wikipedia\\/commons\\/thumb\\/.*?jpg.*?[jpg]{3}")
-    if(nchar(doc) < 1){
-      url <- paste0("https://en.wikipedia.org/wiki/",searchTerm)
-      doc <- paste0(readr::read_lines(url), collapse="\n")
-      result <- stringr::str_extract_all(string = as.character(doc),
-                                         pattern = "\\/\\/upload.wikimedia.org\\/wikipedia\\/commons\\/thumb\\/.*?jpg.*?[jpg]{3}")
-    }
-    else{
-      run = F
-    }
-    }
-    j = 1
-    result_list <- c()
-    n = 1
-      for(i in 1:5){
-
-          result_list[n] <- paste0("https://", result[[1]][j])
-          j = j + 4
-          n = n + 1
-        }
-    return(result_list)
-
-  }
+  #impression box with pictures
   observeEvent(search$df,{
-  output$pic_box <- pic_box(scrape_pic(input$search), input$search)})
+  output$pic_box <- pic_box(hikeR::hike_scrape_pic(input$search,4), input$search)})
 
-  #outputs----------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
+  #help page
   observeEvent(help, {
     sendSweetAlert(
       session = session,
@@ -86,7 +58,7 @@ server <- function(input, output, session) {
       text = includeText("./test.txt"),
       type = "info"
     )
-  }) #help page
+  })
 
   #Base map functions, map events start here
 
@@ -106,33 +78,18 @@ server <- function(input, output, session) {
             text = paste0(input$search, " is not a Valid adress"),
             type = "error"
           )
-
       }
       search2$df <- search$df
       weatherdata$df <- hikeR::hike_weather(search$df)
     }
   })
 
-  # mapping --------
+  # mapping --------------------------------------------------------------------
   # base leaflet with search function
-  output$leafmap <- renderLeaflet({
+  source("inst/modules/base_map.R")
+  output$leafmap <-   renderLeaflet(base_map(search$df, input$detail))
 
-    leaflet() %>%
-      addTiles() %>%
-      addDrawToolbar(editOptions = editToolbarOptions(remove = F),singleFeature = T,
-                     circleMarkerOptions = F, circleOptions = F,polygonOptions = F,
-                     rectangleOptions = F,markerOptions = F) %>% addProviderTiles(providers$HikeBike.HikeBike, group ="Hike and Bike Map") %>%
-      addProviderTiles(providers$Hydda.Full, group ="Standard") %>%#HikeBike.HikeBike
-      mapview::addMouseCoordinates()  %>%
-      setView(lng =  search$df[1] , lat = search$df[2],
-              zoom =if(input$detail){19} else{12}) %>%
-      addLayersControl(
-        baseGroups = c("Standard","Hike and Bike Map")) %>%
-      addCircleMarkers(lng = search$df[1],
-                       lat = search$df[2],radius = 20,stroke = F,fillColor = viridisLite::inferno(1,begin = 0.5))
-  })
 
-  # leafmap 2 for in reach
   # sync both maps
 
   observeEvent(input$leafmap_bounds,{
@@ -146,23 +103,13 @@ server <- function(input, output, session) {
     y_sync$df = search$df[2]
     zoom_sync$df = input$leafmap_zoom
   })
-  output$leafmap_reach <- renderLeaflet({
-    leaflet() %>%
-      addTiles() %>%
-      addDrawToolbar(editOptions = editToolbarOptions(remove = F),singleFeature = T,
-                     circleMarkerOptions = T, circleOptions = F,polygonOptions = F,
-                     rectangleOptions = F,markerOptions = F,polylineOptions = F) %>%
-      addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
-      addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
-      mapview::addMouseCoordinates()  %>%
-      setView(lng =  x_sync$df , lat = y_sync$df,
-              zoom =if(input$detail){19} else{zoom_sync$df}) %>%
-      addCircleMarkers(lng = search$df[1],
-                       lat = search$df[2],radius = 20,stroke = F,
-                       fillColor = viridisLite::inferno(1, begin = 0.5)) %>%
-      addLayersControl(
-        baseGroups = c("Light", "Dark"))
-  })
+  # base map for in reach
+  output$leafmap_reach <- renderLeaflet({reach_base_map(search$df,
+                                                        input$detail,x_sync$df,y_sync$df,
+                                                        zoom_sync$df)
+    })
+
+
   # map the routed trip --> map tmp_route
   observe({
     if(!is.null(tmp_route$df)){
@@ -181,7 +128,6 @@ server <- function(input, output, session) {
       view <- st_as_sf(tmp_route$df) %>%
         st_centroid() %>%
         st_coordinates()
-      print(view)
       leafletProxy("leafmap", data = tmp_route$df) %>%
         clearShapes() %>% addPolylines(color = "Black",
                                        highlightOptions = highlightOptions(bringToFront = T,
@@ -194,12 +140,10 @@ server <- function(input, output, session) {
         clearShapes()
     }
   })
-  # reach poly
+  # map the polys from in reach
   observe({
     if(!is.null(reach$df)){
       in_reach <- TRUE
-
-
       leafletProxy("leafmap_reach", data = reach$df) %>%
         clearShapes() %>% addPolygons( highlightOptions = highlightOptions(bringToFront = T,
                                                                            stroke =T,
@@ -320,7 +264,6 @@ server <- function(input, output, session) {
       if(input$more){
         tmp_route$df <- NULL
         wayp_list <- data.frame(name = paste0("to",1:input$waypoints))
-        #print(wayp_list)
         j = 1
         tmp <- list()
         for(i in wayp_list$name){
@@ -329,29 +272,46 @@ server <- function(input, output, session) {
           j <- j + 1
         }
         wayp <- data.frame(do.call(rbind,tmp))
-        from <- geo_code(input$from)
-        to <- geo_code(input$to)
+        from <- hikeR::hike_search_plc(input$from)
+        to <- hikeR::hike_search_plc(input$to)
+
+
         all <- rbind(from, wayp)
         all <- data.frame(rbind(all, to))
         print("route more")
         tmp_route$df <- hikeR::hike_routing(all, shiny_progress = T, profile = profile ,provider = provider,api)
-      } else {
 
-        from <- geo_code(input$from)
-        to <- geo_code(input$to)
-        data <- data.frame(rbind(from,to))
-        tmp_route$df <- hikeR::hike_routing(data, shiny_progress = T,profile = profile,provider = provider,api)
+      } else {
+        from <- hikeR::hike_search_plc(input$from)
+        to <- hikeR::hike_search_plc(input$to)
+        print("check")
+        print(from)
+        print(to)
+        if(from  == T | to == T){ # daraus fun machen
+          print("wrong")
+          routed$df <- FALSE
+          text <- if(from == T){input$from} else if(to == T){input$to}
+          sendSweetAlert(
+            session = session,
+            title = "Error...",
+            text = paste0(text,
+                          " is not a Valid adress"),
+            type = "error"
+          )
+        } else {
+            data <- data.frame(rbind(from,to))
+            tmp_route$df <- hikeR::hike_routing(data, shiny_progress = T,profile = profile,provider = provider,api)
+        }
       }
 
     } else {
       print("draw route")
       tmp_route$df <- hikeR::hike_routing(values$df,shiny_progress = T,profile = profile,provider = provider,api)
-      #print(tmp_route$df)
     }
-    elevPoints_route$df <- hikeR::hike_spatial_elev(tmp_route$df,shiny_progress = T,apikey)
+    if(routed$df)elevPoints_route$df <- hikeR::hike_spatial_elev(tmp_route$df,shiny_progress = T,apikey)
 
   })
-  # end of routing event
+  # end of routing event------
 
 
   # updated for routed trip
@@ -385,6 +345,8 @@ server <- function(input, output, session) {
     output$weather <-weather_mod(weatherdata$df)
     output$percip <- percip(weatherdata$df)
     output$temp <- temp(weatherdata$df)
+    output$wind <- windspd(weatherdata$df)
+    output$hum <- humiditiy(weatherdata$df)
   })
 
   # elevation-------------------------------------------------------------------
@@ -411,9 +373,7 @@ server <- function(input, output, session) {
     if(!is.null(pKm$df)){ hikeR::hike_traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)}
   })
   #plot outputs here -----------------------------------------------------------
-
   source("inst/modules/elev_plot.R")
-
   observeEvent({elevPoints$df
     input$twoD},{
       output$plot <- plot_air(elevPoints$df, values$df, input$twoD)})
@@ -443,14 +403,5 @@ server <- function(input, output, session) {
 
     }
   )
-  # header boxes------
-
-  output$main <- renderInfoBox({
-    infoBox(value = "hikeR",title = "Plan your trip with",icon = icon("pagelines"),fill = T,
-            color = "olive")
-  })
-  output$git <- renderInfoBox({
-    infoBox(value = "click me",title = "get the code",icon = icon("github"),fill = F,
-            href = "https://github.com/EricKrg/hikeR",color = "black")
-  })
 }
+
