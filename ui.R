@@ -36,6 +36,7 @@ height_stats <- FALSE
 useSweetAlert()
 
 # Define UI for application that draws a histogram
+
 title <- tags$div(icon("pagelines"),
                 'hikeR', target="_blank", color = "green")
 dashboardPage(title="hikeR - ease up planning",
