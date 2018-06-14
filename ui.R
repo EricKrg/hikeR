@@ -65,7 +65,7 @@ dashboardPage(title="hikeR - ease up planning",
     fluidRow(infoBoxOutput("percip", width = NULL)),
     fluidRow(infoBoxOutput("wind", width = NULL)),
     fluidRow(infoBoxOutput("hum", width = NULL)),
-    fluidRow(dashboardLabel("Help", status = "info"))
+    fluidRow(dashboardLabel(actionLink("Help",inputId = "help"), status = "info"))
    # menuItem("Weather", icon = icon("th"), tabName = "weather_th",
    #          badgeLabel = "new", badgeColor = "red")
   ),
@@ -73,6 +73,27 @@ dashboardPage(title="hikeR - ease up planning",
   dashboardBody(tags$head(tags$style(
     HTML( # custom sized panels
       '.info-box {min-height: 45px;} .info-box-icon {height: 45px; line-height: 45px;} .info-box-content {padding-top: 0px; padding-bottom: 0px;}'
+    )
+  )),
+  # open data jena -----------------------------------------------------------
+  fluidRow(boxPlus(width = 12,
+    title = "Jena OpenData",
+    solidHeader = F,
+    #background = "",
+    materialSwitch("open_jena", label = "jena"),
+    conditionalPanel(
+      condition = 'input.open_jena',
+      materialSwitch("poi", label = "show Points of intrest"),
+      materialSwitch("biketracks", label = "bike"),
+      conditionalPanel(condition = 'input.biketracks',
+                       fluidRow(column(
+                         12, DT::dataTableOutput('bike_dt')
+                       ))),
+      materialSwitch("running", label = "running"),
+      conditionalPanel(condition = 'input.running',
+                       fluidRow(column(
+                         12, DT::dataTableOutput('run_dt')
+                       )))
     )
   )),
   # main panel -----------------------------------------------------------------
@@ -120,7 +141,7 @@ dashboardPage(title="hikeR - ease up planning",
       # Left Column ------------------------------------------------------------
       column(
         width = 5,
-        fluidRow(tabBox(title = "Stats.",
+        fluidRow(tabBox(
           width = NULL,
           tabPanel(
             icon = icon("tasks"),
