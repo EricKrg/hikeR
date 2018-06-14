@@ -18,7 +18,7 @@ base_map <- function(search, detail){
         rectangleOptions = F,
         markerOptions = F
       ) %>% addProviderTiles(providers$HikeBike.HikeBike, group = "Hike and Bike Map") %>%
-      addProviderTiles(providers$Hydda.Full, group = "Standard") %>%
+      addProviderTiles(providers$Hydda, group = "Standard") %>%
       mapview::addMouseCoordinates()  %>%
       setView(lng =  search[1] ,
               lat = search[2],

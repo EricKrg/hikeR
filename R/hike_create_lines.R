@@ -50,14 +50,16 @@ hike_distance <- function(point_a, point_b, unit){
 }
 
 #'
-#' redundant fun
+#' search fun, which throws an error if typed in searhterm could not be found,
+#' needed for shiny
 #'
 #' @param searchterm - string
 #' @return coords of searchterm
+#' @example hike_search_plc("Jenvsc")
 #' @export
 hike_search_plc <- function(instring){
   t <- tryCatch({
-  xy <- geo_code(instring, service = "google", pat = "AIzaSyA3Yu4yyRu5-p8vst9okuQqCJYjJdSguZg")
+  xy <- geo_code(instring)#, service = "google", pat = "AIzaSyA3Yu4yyRu5-p8vst9okuQqCJYjJdSguZg")
   },
   error=function(cond) {
     message("adress not valid")
@@ -65,7 +67,7 @@ hike_search_plc <- function(instring){
   })
   return(t)
 }
-ex <- hike_search_plc("Jenvsc")
+
 #'
 #' height difference
 #' @param points - sf points
