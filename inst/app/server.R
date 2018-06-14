@@ -344,6 +344,10 @@ server <- function(input, output, session) {
     output$temp <- temp(weatherdata$df)
   })
 
+  # warnungen---------------------------------------------------------------------
+  source("./modules/warnungen.R")
+
+
   # elevation-------------------------------------------------------------------
   # height info box (black)
   source("./modules/elev_box.R")
