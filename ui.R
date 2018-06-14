@@ -69,6 +69,7 @@ dashboardPage(title="hikeR - ease up planning",
    # menuItem("Weather", icon = icon("th"), tabName = "weather_th",
    #          badgeLabel = "new", badgeColor = "red")
   ),
+  switchInput(inputID = "warnungen", label = "Wetterwarnungen"),
   dashboardBody(tags$head(tags$style(
     HTML( # custom sized panels
       '.info-box {min-height: 45px;} .info-box-icon {height: 45px; line-height: 45px;} .info-box-content {padding-top: 0px; padding-bottom: 0px;}'

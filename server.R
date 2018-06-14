@@ -368,6 +368,13 @@ server <- function(input, output, session) {
     output$min <- min_box(elevP)
 
   })
+
+  # wetterwarnungen ------------------------------------------------------------
+  source("inst/modules/warnungen.R")
+  observeEvent({search$df
+    input$warnungen},{
+      output$plot <- plot_air(search$df, values$df, input$twoD)})
+
   #travel time here ------------------------------------------------------------
   output$traveltime <- renderTable({
     if(!is.null(pKm$df)){ hikeR::hike_traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)}
