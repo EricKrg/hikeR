@@ -67,12 +67,8 @@ server <- function(input, output, session) {
     print(input$search)
     if(nchar(input$search)==0){
       search$df <- search2$df # stops app from crashing when clearing prev. search
-      print("first")
-      print(search$df)
     } else {
       search$df <- hikeR::hike_search_plc(input$search)
-      print("second")
-      print(search$df)
       if(search$df == TRUE){
         search$df <- search2$df
         sendSweetAlert(
@@ -94,12 +90,9 @@ server <- function(input, output, session) {
       if(input$warnungen == TRUE){
         incProgress(amount = 0.1)
         w <- warnungen()
-        print(w)
         incProgress(amount = 0.4)
-        #if(is(w,"warning")){
         if(w == TRUE){
           incProgress(amount = 0.2)
-          print("hi")
           sendSweetAlert(
             session = session,
             title = "Information",
@@ -311,15 +304,13 @@ server <- function(input, output, session) {
   # New Feature-----------------------------------------------------------------
   # null bars if new feature
   observeEvent(input$leafmap_draw_new_feature,{
-    print("New Feature")
+    #print("New Feature")
     # print(input$leafmap_draw_new_feature)
     # elevPoints_route$df <- NULL
     elevPoints$df <- NULL
     pKm$df <- NULL
-    updateProgressBar(session = session, id = "pKm", value = 0,total = 100)
-    updateProgressBar(session = session, id = "flat", value = 0,total = 100)
-    updateProgressBar(session = session, id = "up", value = 0,total = 100)
-    updateProgressBar(session = session, id = "down", value = 0,total = 100)
+    for(i in c("pKm", "flat","up","down")){
+      updateProgressBar(session = session, id = i, value = 0,total = 100)}
     routed$df <- FALSE
     tmp_route$df <- NULL
     gc()
@@ -442,7 +433,7 @@ server <- function(input, output, session) {
   # end of routing event------
 
 
-  # updated for routed trip
+  # update stats for routed trip------------------------------------------------
   observe(if(routed$df){
     if(!is.null(tmp_route$df)){
       print("route info")

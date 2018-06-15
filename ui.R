@@ -60,17 +60,17 @@ dashboardPage(title="hikeR - ease up planning",
       value = "Jena" ,
       btnSearch = icon("search"),
       btnReset = icon("remove")
-    ), # weather
-    fluidRow(infoBoxOutput("weather", width = NULL)),
-    fluidRow(infoBoxOutput("temp", width = NULL)),
-    fluidRow(infoBoxOutput("percip", width = NULL)),
-    fluidRow(infoBoxOutput("wind", width = NULL)),
-    fluidRow(infoBoxOutput("hum", width = NULL)),
-    fluidRow(dashboardLabel(actionLink("Help",inputId = "help"), status = "info")),
-   # menuItem("Weather", icon = icon("th"), tabName = "weather_th",
-   #          badgeLabel = "new", badgeColor = "red")
+   ), # weather
+   fluidRow(infoBoxOutput("weather", width = NULL)),
+   fluidRow(infoBoxOutput("temp", width = NULL)),
+   fluidRow(infoBoxOutput("percip", width = NULL)),
+   fluidRow(infoBoxOutput("wind", width = NULL)),
+   fluidRow(infoBoxOutput("hum", width = NULL)),
    useSweetAlert(),
-   materialSwitch(inputId = "warnungen", label = "Weather warnings", value = FALSE)
+   materialSwitch(inputId = "warnungen",
+                  label = "Weather warnings",
+                  value = FALSE),
+   fluidRow(dashboardLabel(actionLink("Help", inputId = "help"), status = "info"))
   ),
 
   dashboardBody(tags$head(tags$style(
