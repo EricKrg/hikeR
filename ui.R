@@ -36,12 +36,14 @@ help <- TRUE
 height_stats <- FALSE
 useSweetAlert()
 
+
 # Define UI for application that draws a histogram
 
 title <- tags$div(icon("pagelines"),
                 'hikeR', target="_blank", color = "green")
 dashboardPage(title="hikeR - ease up planning",
   skin = "black",
+
   dashboardHeader(
     disable = F,
      title = title,
@@ -73,11 +75,14 @@ dashboardPage(title="hikeR - ease up planning",
    fluidRow(dashboardLabel(actionLink("Help", inputId = "help"), status = "info"))
   ),
 
-  dashboardBody(tags$head(tags$style(
+  dashboardBody(
+    tags$head(includeScript("google_analystics.js")),
+    tags$head(tags$style(
     HTML( # custom sized panels
       '.info-box {min-height: 45px;} .info-box-icon {height: 45px; line-height: 45px;} .info-box-content {padding-top: 0px; padding-bottom: 0px;}'
     )
   )),
+
   # open data jena -----------------------------------------------------------
   fluidRow(boxPlus(width = 12,
     title = "Jena OpenData",
