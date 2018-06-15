@@ -89,14 +89,17 @@ server <- function(input, output, session) {
   # wetterwarnungen ------------------------------------------------------------
   source("inst/modules/warnungen.R")
   observeEvent(input$warnungen, {
+    useSweetAlert()
     withProgress(message = "collecting warnings", value = 0.2,{
       if(input$warnungen == TRUE){
         incProgress(amount = 0.1)
         w <- warnungen()
         print(w)
         incProgress(amount = 0.4)
+        #if(is(w,"warning")){
         if(w == TRUE){
           incProgress(amount = 0.2)
+          print("hi")
           sendSweetAlert(
             session = session,
             title = "Information",

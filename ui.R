@@ -69,6 +69,7 @@ dashboardPage(title="hikeR - ease up planning",
     fluidRow(dashboardLabel(actionLink("Help",inputId = "help"), status = "info")),
    # menuItem("Weather", icon = icon("th"), tabName = "weather_th",
    #          badgeLabel = "new", badgeColor = "red")
+   useSweetAlert(),
    materialSwitch(inputId = "warnungen", label = "Weather warnings", value = FALSE)
   ),
 
