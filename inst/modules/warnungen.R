@@ -4,7 +4,7 @@ library(stringr)
 
 
 warnungen = function() {
-  #ogrListLayers("https://maps.dwd.de/geoserver/ows?service=wfs&version=2.0.0&request=GetCapabilities")
+  # ogrListLayers("https://maps.dwd.de/geoserver/ows?service=wfs&version=2.0.0&request=GetCapabilities")
   # ogrinfo(dsn, so=TRUE)
 
   warnungen = tryCatch({
