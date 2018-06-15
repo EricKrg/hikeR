@@ -60,15 +60,18 @@ server <- function(input, output, session) {
     )
   })
 
-  #Base map functions, map events start here
+  #search bar ------------------------------------------------------------------
 
   # search observer
   observeEvent(input$search,{
     print(input$search)
     if(nchar(input$search)==0){
       search$df <- search2$df # stops app from crashing when clearing prev. search
+      print("first")
+      print(search$df)
     } else {
       search$df <- hikeR::hike_search_plc(input$search)
+      print("second")
       print(search$df)
       if(search$df == TRUE){
         search$df <- search2$df
@@ -82,6 +85,44 @@ server <- function(input, output, session) {
       search2$df <- search$df
       weatherdata$df <- hikeR::hike_weather(search$df)
     }
+  })
+  # wetterwarnungen ------------------------------------------------------------
+  source("inst/modules/warnungen.R")
+  observeEvent(input$warnungen, {
+    withProgress(message = "collecting warnings", value = 0.2,{
+      if(input$warnungen == TRUE){
+        incProgress(amount = 0.1)
+        w <- warnungen()
+        print(w)
+        incProgress(amount = 0.4)
+        if(w == TRUE){
+          incProgress(amount = 0.2)
+          sendSweetAlert(
+            session = session,
+            title = "Information",
+            text = "No weather warnings for Germany today",
+            type = "success"
+          )
+        } else {
+          incProgress(amount = 0.4)
+          pal <- colorFactor(palette = viridisLite::viridis(n = length(levels(w$EVENT))),
+                             domain = w$EVENT)
+          content <- paste(
+            "<b>","Art: ","</b>", w$EVENT,"<br>",
+            "<b>","Desc.: ","</b>", w$DESCRIPTION,"<br>",
+            "<b>","Detail: ","</b>", w$PARAMATERVALUE,"<br>",
+            "<b>","Sent: ","</b>" ,w$SENT,"<br>",
+            "<b>","Source: ","</b>", w$WEB)
+          leafletProxy("leafmap", data = w) %>%
+            addPolygons(color = ~pal(EVENT),stroke = F, popup = content,layerId = "w")
+        }
+      }
+      else{
+        incProgress(amount = 0.4)
+        leafletProxy("leafmap") %>%
+          removeShape("w")
+      }
+    })
   })
 
   # mapping --------------------------------------------------------------------
@@ -179,8 +220,6 @@ server <- function(input, output, session) {
   })
   # map events end here --------------------------------------------------------
   # input data starts here -----------------------------------------------------
-
-
   # Jena Open Data -------------------------------------------------------------
   observe({
     if(input$open_jena){
@@ -454,12 +493,6 @@ server <- function(input, output, session) {
     output$min <- min_box(elevP)
 
   })
-
-  # wetterwarnungen ------------------------------------------------------------
-  source("inst/modules/warnungen.R")
-  observeEvent({search$df
-    input$warnungen},{
-      output$plot <- plot_air(search$df, values$df, input$twoD)})
 
   #travel time here ------------------------------------------------------------
   output$traveltime <- renderTable({
