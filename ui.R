@@ -77,14 +77,16 @@ dashboardPage(title="hikeR - ease up planning",
   ),
 
   dashboardBody(
+    #tags$head(includeHTML('./leaflet_cdn.html')),
     tags$head(includeScript("google_analystics.js")),
+    #tags$head(includeScript("geolocation.js")),
     tags$head(tags$style(
     HTML( # custom sized panels
       '.info-box {min-height: 45px;} .info-box-icon {height: 45px; line-height: 45px;} .info-box-content {padding-top: 0px; padding-bottom: 0px;}'
     )
   )),
-
-  # open data jena -----------------------------------------------------------
+  #
+  # # open data jena -----------------------------------------------------------
   # fluidRow(boxPlus(width = 12,
   #   title = "Jena OpenData",
   #   solidHeader = F,
@@ -186,7 +188,7 @@ dashboardPage(title="hikeR - ease up planning",
           ),
           tabPanel(
             icon = icon("caret-up"),
-            "Airline",
+            "Height Profile",
             withSpinner(
               plotly::plotlyOutput("plot", width = NULL),
               type = 6,
@@ -194,20 +196,21 @@ dashboardPage(title="hikeR - ease up planning",
             ),
             switchInput("twoD", label = "2D", value = FALSE)
           ),
-          tabPanel(
-            icon = icon("caret-up"),
-            "Route",
-            withSpinner(
-              plotly::plotlyOutput("plot_route"),
-              type = 6,
-              color = "black"
-            ),
-            switchInput("twoDr", label = "2D", value = FALSE)
-          ),
+          # tabPanel(
+          #   icon = icon("caret-up"),
+          #   "Route",
+          #   withSpinner(
+          #     plotly::plotlyOutput("plot_route"),
+          #     type = 6,
+          #     color = "black"
+          #   ),
+          #   switchInput("twoDr", label = "2D", value = FALSE)
+          # ),
           tabPanel(
             title = "Trip coords.",
             icon = icon("map-marker"),
-            tableOutput("data")
+            #tableOutput("data"),
+            DT::dataTableOutput('old_routes')
           )
         )),
         fluidRow(
@@ -346,7 +349,7 @@ dashboardPage(title="hikeR - ease up planning",
                 #                                     label = "Routing style",
                 #                                     choices = c("foot","hike","bike", "mtb","racingbike"),
                 #                                     status = "danger")),
-                actionButton("routing", "Route")
+                materialSwitch("routing", "Route",value = F)
               )
             ),
             column(width = 4,
