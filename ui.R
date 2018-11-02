@@ -87,26 +87,26 @@ dashboardPage(title="hikeR - ease up planning",
   )),
   #
   # # open data jena -----------------------------------------------------------
-  # fluidRow(boxPlus(width = 12,
-  #   title = "Jena OpenData",
-  #   solidHeader = F,
-  #   #background = "",
-  #   materialSwitch("open_jena", label = "jena"),
-  #   conditionalPanel(
-  #     condition = 'input.open_jena',
-  #     materialSwitch("poi", label = "show Points of intrest"),
-  #     materialSwitch("biketracks", label = "bike"),
-  #     conditionalPanel(condition = 'input.biketracks',
-  #                      fluidRow(column(
-  #                        12, DT::dataTableOutput('bike_dt')
-  #                      ))),
-  #     materialSwitch("running", label = "running"),
-  #     conditionalPanel(condition = 'input.running',
-  #                      fluidRow(column(
-  #                        12, DT::dataTableOutput('run_dt')
-  #                      )))
-  #   )
-  # )),
+  fluidRow(boxPlus(width = 12,
+    title = "Jena OpenData",
+    solidHeader = F,
+    #background = "",
+    materialSwitch("open_jena", label = "jena"),
+    conditionalPanel(
+      condition = 'input.open_jena',
+      materialSwitch("poi", label = "show Points of intrest"),
+      materialSwitch("biketracks", label = "bike"),
+      conditionalPanel(condition = 'input.biketracks',
+                       fluidRow(column(
+                         12, DT::dataTableOutput('bike_dt')
+                       ))),
+      materialSwitch("running", label = "running"),
+      conditionalPanel(condition = 'input.running',
+                       fluidRow(column(
+                         12, DT::dataTableOutput('run_dt')
+                       )))
+    )
+  )),
   # main panel -----------------------------------------------------------------
   fluidRow(column(
     width = 12,

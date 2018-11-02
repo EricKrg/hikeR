@@ -234,88 +234,88 @@ server <- function(input, output, session) {
   # map events end here --------------------------------------------------------
   # input data starts here -----------------------------------------------------
   # Jena Open Data -------------------------------------------------------------
-  # observe({
-  #   if(input$open_jena){
-  #     if(input$poi){
-  #       poi <- geojsonsf::geojson_sf("shiny_data/data/poi.geojson")[1:5]
-  #       poi_xy<- st_coordinates(poi)
-  #       content = paste(
-  #         "<b>","Art: ","</b>", poi$art,
-  #         "<b>", "Name: ","</b>",poi$name )
-  #       leafletProxy("leafmap") %>%
-  #         addCircles(lng = poi_xy[,1], lat = poi_xy[,2],popup = content)
-  #     } else{
-  #       leafletProxy("leafmap", data = c()) %>% clearShapes()}
-  #    if(input$running){
-  #       run <- geojsonsf::geojson_sf("shiny_data/data/laufwege.geojson")[1:4]
-  #
-  #       run_table <- run
-  #       sf::st_geometry(run_table) <- NULL
-  #
-  #       output$run_dt = DT::renderDataTable(run_table[,c(2,3)], server = FALSE)
-  #
-  #       observeEvent(input$run_dt_rows_selected,{
-  #         print(input$run_dt_rows_selected)
-  #         r <- input$run_dt_rows_selected
-  #         run_show <- run[r,]
-  #         print(run_show)
-  #         routed$df <- TRUE
-  #         tmp_route$df <- run_show
-  #         elevPoints_route$df <- hikeR::hike_spatial_elev(tmp_route$df,shiny_progress = T,apikey)
-  #         if(!is.null(run_show)){
-  #           leafletProxy("leafmap", data = run_show) %>%
-  #             removeShape("r") %>% addPolylines(layerId = "r")
-  #         } else {
-  #           leafletProxy("leafmap", data = run) %>%
-  #             addPolylines()
-  #         }
-  #
-  #       })
-  #
-  #    }
-  #    if(input$biketracks){
-  #       bike <- geojsonsf::geojson_sf("shiny_data/data/fahrradroute_touristisch.geojson")[1:6]
-  #       cat <- unique(bike$rad_fern1)
-  #       j = 1
-  #       tmp <- list()
-  #       for(i in cat){
-  #         tmp_bike <- subset(bike, bike$rad_fern1 == i)
-  #         tmp[[j]]  <- sf::st_sf(geometry = sf::st_sfc(sf::st_combine(tmp_bike)),id = j , name = i)
-  #         j = j + 1
-  #       }
-  #
-  #       bike <- do.call(rbind, tmp)
-  #
-  #       bike_table <- bike
-  #       sf::st_geometry(bike_table) <- NULL
-  #
-  #       output$bike_dt = DT::renderDataTable(bike_table[,c(1,2)], server = FALSE)
-  #
-  #       observeEvent(input$bike_dt_rows_selected,{
-  #         print(input$bike_dt_rows_selected)
-  #         b <- input$bike_dt_rows_selected
-  #         bike_show <- st_cast(bike[b,], "LINESTRING")
-  #
-  #         routed$df <- TRUE
-  #         tmp_route$df <- bike_show
-  #         elevPoints_route$df <- hikeR::hike_spatial_elev(tmp_route$df,shiny_progress = T,apikey)
-  #         if(!is.null(bike_show)){
-  #           leafletProxy("leafmap", data = bike_show) %>%
-  #             removeShape("b") %>% addPolylines(layerId = "b")
-  #         } else {
-  #           leafletProxy("leafmap", data = bike) %>%
-  #             addPolylines()
-  #         }
-  #
-  #       })
-  #     }
-  #   } else {
-  #       leafletProxy("leafmap", data = c()) %>%
-  #         clearShapes()
-  #   }
-  #
-  # })
-  #
+  observe({
+    if(input$open_jena){
+      if(input$poi){
+        poi <- geojsonsf::geojson_sf("shiny_data/data/poi.geojson")[1:5]
+        poi_xy<- st_coordinates(poi)
+        content = paste(
+          "<b>","Art: ","</b>", poi$art,
+          "<b>", "Name: ","</b>",poi$name )
+        leafletProxy("leafmap") %>%
+          addCircles(lng = poi_xy[,1], lat = poi_xy[,2],popup = content)
+      } else{
+        leafletProxy("leafmap", data = c()) %>% clearShapes()}
+     if(input$running){
+        run <- geojsonsf::geojson_sf("shiny_data/data/laufwege.geojson")[1:4]
+
+        run_table <- run
+        sf::st_geometry(run_table) <- NULL
+
+        output$run_dt = DT::renderDataTable(run_table[,c(2,3)], server = FALSE)
+
+        observeEvent(input$run_dt_rows_selected,{
+          print(input$run_dt_rows_selected)
+          r <- input$run_dt_rows_selected
+          run_show <- run[r,]
+          print(run_show)
+          routed$df <- TRUE
+          tmp_route$df <- run_show
+          elevPoints_route$df <- hikeR::hike_spatial_elev(tmp_route$df,shiny_progress = T,apikey)
+          if(!is.null(run_show)){
+            leafletProxy("leafmap", data = run_show) %>%
+              removeShape("r") %>% addPolylines(layerId = "r")
+          } else {
+            leafletProxy("leafmap", data = run) %>%
+              addPolylines()
+          }
+
+        })
+
+     }
+     if(input$biketracks){
+        bike <- geojsonsf::geojson_sf("shiny_data/data/fahrradroute_touristisch.geojson")[1:6]
+        cat <- unique(bike$rad_fern1)
+        j = 1
+        tmp <- list()
+        for(i in cat){
+          tmp_bike <- subset(bike, bike$rad_fern1 == i)
+          tmp[[j]]  <- sf::st_sf(geometry = sf::st_sfc(sf::st_combine(tmp_bike)),id = j , name = i)
+          j = j + 1
+        }
+
+        bike <- do.call(rbind, tmp)
+
+        bike_table <- bike
+        sf::st_geometry(bike_table) <- NULL
+
+        output$bike_dt = DT::renderDataTable(bike_table[,c(1,2)], server = FALSE)
+
+        observeEvent(input$bike_dt_rows_selected,{
+          print(input$bike_dt_rows_selected)
+          b <- input$bike_dt_rows_selected
+          bike_show <- st_cast(bike[b,], "LINESTRING")
+
+          routed$df <- TRUE
+          tmp_route$df <- bike_show
+          elevPoints_route$df <- hikeR::hike_spatial_elev(tmp_route$df,shiny_progress = T,apikey)
+          if(!is.null(bike_show)){
+            leafletProxy("leafmap", data = bike_show) %>%
+              removeShape("b") %>% addPolylines(layerId = "b")
+          } else {
+            leafletProxy("leafmap", data = bike) %>%
+              addPolylines()
+          }
+
+        })
+      }
+    } else {
+        leafletProxy("leafmap", data = c()) %>%
+          clearShapes()
+    }
+
+  })
+
   #
   #*****************************************************************************
   # New Feature-----------------------------------------------------------------
