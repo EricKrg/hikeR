@@ -6,7 +6,6 @@ require(sf)
 
 
 base_map <- function(search, detail){
-
     map <- leaflet() %>%
       addTiles() %>%
       addDrawToolbar(
