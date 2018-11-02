@@ -29,13 +29,26 @@ server <- function(input, output, session) {
   y_sync <- reactiveValues(df = NULL)
   x_sync <- reactiveValues(df = NULL)
   zoom_sync <- reactiveValues(df = NULL)
+  route_length <- reactiveValues(df = NULL)
+  latest_route <- reactiveValues(df = NULL)
+  last_list <- reactiveValues(df = NULL)
   # intial values
+  route_counter = reactiveValues(df = NULL)
+  last_list$df = list()
+  route_counter$df = 1
+  route_list = list()
   goweather$df <- FALSE
   routed$df <- FALSE
   goUpdate$df <- FALSE
   reach_tf$df <- FALSE
   #dynamic panels---------------------------------------------------------------
 
+  observe({
+    if(!is.null(input$lat)){
+      print(input$geolocation)
+      print(input$lati)
+      print(input$long)}
+  })
   source("inst/modules/dynamic_ui.R")
   #waypoints in adress route
   observeEvent(input$waypoints,{
@@ -48,6 +61,7 @@ server <- function(input, output, session) {
   #impression box with pictures
   observeEvent(search$df,{
   output$pic_box <- pic_box(hikeR::hike_scrape_pic(input$search,4), input$search)})
+
 
   #-----------------------------------------------------------------------------
   #help page
@@ -69,6 +83,7 @@ server <- function(input, output, session) {
       search$df <- search2$df # stops app from crashing when clearing prev. search
     } else {
       search$df <- hikeR::hike_search_plc(input$search)
+      print(search$df)
       if(search$df == TRUE){
         search$df <- search2$df
         sendSweetAlert(
@@ -83,13 +98,13 @@ server <- function(input, output, session) {
     }
   })
   # wetterwarnungen ------------------------------------------------------------
-  source("inst/modules/warnungen.R")
+  #source("inst/modules/warnungen.R")
   observeEvent(input$warnungen, {
     useSweetAlert()
     withProgress(message = "collecting warnings", value = 0.2,{
       if(input$warnungen == TRUE){
         incProgress(amount = 0.1)
-        w <- warnungen()
+        w <- hikeR::hike_warnungen()
         incProgress(amount = 0.4)
         if(class(w)[1] != "sf"){
           incProgress(amount = 0.2)
@@ -102,7 +117,7 @@ server <- function(input, output, session) {
         } else {
           incProgress(amount = 0.4)
           pal <- colorFactor(palette = viridisLite::viridis(n = length(levels(w$EVENT))),
-                             domain = w$EVENT)
+                             domain = w$EVENT,alpha = T)
           content <- paste(
             "<b>","Art: ","</b>", w$EVENT,"<br>",
             "<b>","Desc.: ","</b>", w$DESCRIPTION,"<br>",
@@ -110,14 +125,16 @@ server <- function(input, output, session) {
             "<b>","Sent: ","</b>" ,w$SENT,"<br>",
             "<b>","Source: ","</b>", w$WEB)
           leafletProxy("leafmap", data = w) %>%
-            addPolygons(color = ~pal(EVENT),opacity = 0,stroke = F, popup = content)
+            addPolygons(fillColor = ~pal(EVENT),fillOpacity = 0.6,stroke = F,
+                        popup = content) %>%
+            setView(lng = 11 ,lat = 50 ,zoom = 6)
         }
       }
       else{
         incProgress(amount = 0.4)
         leafletProxy("leafmap") %>%
-          removeShape("w")
-      }
+          clearShapes()
+        }
     })
   })
 
@@ -148,15 +165,15 @@ server <- function(input, output, session) {
 
 
   # map the routed trip --> map tmp_route
-  observe({
+  observeEvent(tmp_route$df,{
     if(!is.null(tmp_route$df)){
-      if(round(pKm$df[1,4]) < 15){
+      if(round(route_length$df) < 15){
         zoom = 13
       }
-      else if(round(pKm$df[1,4]) > 15 & round(pKm$df[1,4]) < 40){
+      else if(round(route_length$df) > 15 & round(route_length$df) < 40){
         zoom = 11
       }
-      else if(round(pKm$df[1,4]) > 40 & round(pKm$df[1,4]) < 150){
+      else if(round(route_length$df) > 40 & round(route_length$df) < 150){
         zoom = 9
       }
       else {
@@ -177,7 +194,7 @@ server <- function(input, output, session) {
         clearShapes()
     }
   })
-  # map the polys from in reach
+  # map the polys from in reach-------------------------
   observe({
     if(!is.null(reach$df)){
       in_reach <- TRUE
@@ -300,164 +317,152 @@ server <- function(input, output, session) {
   # })
   #
   #
-
+  #*****************************************************************************
   # New Feature-----------------------------------------------------------------
-  # null bars if new feature
+  #*****************************************************************************
+
+  #new feature in leafmap ------------------------------------------------------
+  source("inst/modules/update.R")
+  source("inst/modules/leafmap_new_feature.R")
   observeEvent(input$leafmap_draw_new_feature,{
-    #print("New Feature")
-    # print(input$leafmap_draw_new_feature)
-    # elevPoints_route$df <- NULL
-    elevPoints$df <- NULL
-    pKm$df <- NULL
-    for(i in c("pKm", "flat","up","down")){
-      updateProgressBar(session = session, id = i, value = 0,total = 100)}
-    routed$df <- FALSE
+    # pre module execution
+    route_length$df <- NULL
     tmp_route$df <- NULL
-    gc()
+    #variables for new feature
+    new_draw = input$leafmap_draw_new_feature
+    draw_all = input$leafmap_draw_all_features
+    ### new feature - module excution ############
+    values$df = leafmap_new_feature(new_draw = new_draw, draw_all = draw_all)
+    # update only if routed is not switched on - post procsessing
+    is_routed = input$routing
+    if(is_routed == F){ # dont double update if airline is going to be routed
+      update_list <- update_all(is_routed,values = values$df ,
+                                session = session)
+      weatherdata$df <- update_list[[1]]
+      elevPoints$df <- update_list[[2]]
+      route_length$df <- hike_distance(values$df[1,],values$df[2,], unit = "m")
+      print(hike_distance(values$df[1,],values$df[2,], unit = "m"))
+    }
   })
+  #new feature in leafmap_reach-------------------------------------------------
   #observer leafmap 2
+  # pre module execution
   observeEvent(input$leafmap_reach_draw_new_feature,{
-    print("New Feature")
     reach_tf$df <- TRUE
   })
   observe(if(reach_tf$df){
+    #variables for new feature
     range <- as.numeric(input$reach_time)
     profile <- input$reach_plan
     x <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[2]]
     y <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[1]]
+    ### new feature in reach - module excution ############
     reach$df <- hikeR::hike_iso_create(y,x,range,profile)
   })
 
-  # updated for airline trip
-  observeEvent(input$leafmap_draw_all_features,{
-    print("All Features")
-    if (!is.null(input$leafmap_draw_new_feature$type)){
-      x <- c()
-      y <- c()
-      print("create new feature")
-      for (i in 1:length(input$leafmap_draw_all_features$features[[1]]$geometry$coordinates)){
-        x[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[2]]
-        y[i] <- input$leafmap_draw_all_features$features[[1]]$geometry$coordinates[[i]][[1]]
+  # load old route ---------------------------------------------------------
+  # desc.
+  # loads previous routes, planned in this session, these are removed if the session is killed
+  # pre execution (i.e. null obj...)
+  # observeEvent(tmp_route$df,{
+  #   print("latest_route")
+  #   last_list$df[[route_counter$df]] = tmp_route$df
+  #   route_counter$df = route_counter$df + 1
+  #   if(route_counter$df == 4){ route_counter$df = 1}
+  #
+  #   output$old_routes = DT::renderDataTable(data.frame(latest = paste0("last trip", 1:3)
+  #                                                      #length = as.numeric(route_length$df)
+  #                                                      ),
+  #                                           server = FALSE)
+  #
+  # observeEvent(input$old_routes_rows_selected,{
+  #   print(input$old_routes_rows_selected) # we need this if we want to save more than one route
+  #   latest_route$df = last_list$df[[1]]
+  #   print(tmp_route$df)
+  #   is_routed = input$routing
+  #   update_list <- update_all(is_routed,tmp_route = latest_route$df,session = session)
+  #   weatherdata$df <- update_list[[1]]
+  #   elevPoints$df <- update_list[[2]]
+  #   # display it
+  #   view <- st_as_sf(latest_route$df) %>%
+  #     st_centroid() %>%
+  #     st_coordinates()
+  #   leafletProxy("leafmap", data = latest_route$df) %>%
+  #     clearShapes() %>% addPolylines(color = "Black",
+  #                                    highlightOptions = highlightOptions(bringToFront = T,
+  #                                                                        stroke =T,
+  #                                                                        weight = 5,
+  #                                                                        color =  "red")) %>%
+  #     setView(lng = view[,1],lat = view[,2] , zoom = 12)
+  #   })
+  # })
+
+  #routing module---------------------------------------------------------------
+  #includes update of stats and weather
+  #input routing
+  source("inst/modules/dorouting.R")
+  # routing interface
+  doRoute = function(i_routing){
+    observe(if(input$routing){
+      # routing variables
+      # variables preperation
+      # reset route button
+      if(input$string_route){
+        shinyWidgets::updateMaterialSwitch(session = session,inputId = "routing",
+                                           value = FALSE)}
+      # plan by provider
+      if(input$route_opt == "cycle"){
+        plan = input$plan
       }
-      values$df <- data.frame(x = y , y = x) #mixed it up
-      goUpdate$df <- TRUE
-    }
-  })
-
-  # update all stat bars and weather
-  observe(if(goUpdate$df){
-    print("update")
-    elevPoints$df <- hikeR::hike_spatial_elev(data = values$df,shiny_progress = T,apikey = apikey)
-    print("airline height")
-    height$df <- format(hikeR::hike_height_diff(elevPoints$df, col = "elev"),digits = 5)
-    print("airline pkm")
-    pKm$df <- hikeR::hike_performance_km(elevPoints$df,col="elev",tmp_route = tmp_route$df ,routed = routed$df)
-    pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
-    updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
-    updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
-    updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
-    updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
-    print("weather df")
-    weatherdata$df <- hikeR::hike_weather(elevPoints$df)
-    goUpdate$df <- FALSE
-  })
-
-  # input routing
-  observeEvent(input$routing, {
-    print("route!")
-    provider = input$route_opt
-    if(provider == "cycle"){
-      profile = input$plan
-      api = Sys.getenv("cycle_api")
-    } else if(provider == "ORS") {
-      profile = input$ors_plan
-      api = Sys.getenv("ors")
-    } else { #osm
-      profile = ""
-      api = ""
-    }
-    routed$df <- TRUE
-    if(!is.null(input$string_route) && input$string_route){
-      print("string route")
-      tmp_route$df <- NULL
-      if(input$more){
-        tmp_route$df <- NULL
-        wayp_list <- data.frame(name = paste0("to",1:input$waypoints))
-        j = 1
-        tmp <- list()
-        for(i in wayp_list$name){
-          print(i)
-          tmp[[j]] <- geo_code(input[[i]])
-          j <- j + 1
-        }
-        wayp <- data.frame(do.call(rbind,tmp))
-        from <- hikeR::hike_search_plc(input$from)
-        to <- hikeR::hike_search_plc(input$to)
-
-
-        all <- rbind(from, wayp)
-        all <- data.frame(rbind(all, to))
-        print("route more")
-        tmp_route$df <- hikeR::hike_routing(all, shiny_progress = T, profile = profile ,provider = provider,api)
-
-      } else {
-        from <- hikeR::hike_search_plc(input$from)
-        to <- hikeR::hike_search_plc(input$to)
-        print("check")
-        print(from)
-        print(to)
-        if(from  == T | to == T){ # daraus fun machen
-          print("wrong")
-          routed$df <- FALSE
-          text <- if(from == T){input$from} else if(to == T){input$to}
-          sendSweetAlert(
-            session = session,
-            title = "Error...",
-            text = paste0(text,
-                          " is not a Valid adress"),
-            type = "error"
-          )
-        } else {
-            data <- data.frame(rbind(from,to))
-            tmp_route$df <- hikeR::hike_routing(data, shiny_progress = T,profile = profile,provider = provider,api)
-        }
+      else if(input$route_opt == "ORS"){
+        plan = input$ors_plan
       }
-
-    } else {
-      print("draw route")
-      tmp_route$df <- hikeR::hike_routing(values$df,shiny_progress = T,profile = profile,provider = provider,api)
-    }
-    if(routed$df)elevPoints_route$df <- hikeR::hike_spatial_elev(tmp_route$df,shiny_progress = T,apikey)
-
-  })
-  # end of routing event------
-
-
-  # update stats for routed trip------------------------------------------------
-  observe(if(routed$df){
-    if(!is.null(tmp_route$df)){
-      print("route info")
-      height$df <- format(hikeR::hike_height_diff(elevPoints_route$df, col = "elev"),digits = 5)
-      print("pkm")
-      pKm$df <- hikeR::hike_performance_km(elevPoints_route$df,col="elev",tmp_route = tmp_route$df,routed = routed$df)
-      print("pkm done")
-      pKm$df$total_height <- pKm$df[1,2] + pKm$df[1,3]
-      updateProgressBar(session = session, id = "pKm", value = round(pKm$df[1,1],digits = 2),total = pKm$df[1,1])
-      updateProgressBar(session = session, id = "flat", value = round(pKm$df[1,4],digits = 2),total = pKm$df[1,1])
-      updateProgressBar(session = session, id = "up", value = round(pKm$df[1,2],digits = 2),total = pKm$df[1,5])
-      updateProgressBar(session = session, id = "down", value = round(pKm$df[1,3],digits = 2),total = pKm$df[1,5])
-      routed$df <- FALSE
-      goweather$df <- TRUE # not so cool solution
-    }
-  })
-
-  observe(if(goweather$df){
-    print("route weather extra")
-    weatherdata$df <- hikeR::hike_weather(elevPoints_route$df)
-    goweather$df <- FALSE
-  })
+      # waypoint list for multiple string inputs
+      wayp_list <- data.frame(name = paste0("to",1:input$waypoints))
+      j = 1
+      wayp_tmp <- list()
+      for(i in wayp_list$name){
+        print(i)
+        wayp_tmp[[j]] <- geo_code(input[[i]])
+        j <- j + 1 }
+      # all variables for routing
+      waypoint_list = data.frame(do.call(rbind,wayp_tmp))
+      is_routed = input$routing
+      provider = input$route_opt
+      string_route = input$string_route
+      more = input$more
+      from_i = input$from
+      to_i = input$to
+      values = values$df
+      session = session
+      # routing function as module - execution
+      tmp_route$df <- doRouting(provider = provider,plan =  plan, string_route = string_route,
+                                waypoint_list = waypoint_list, more = more,from_i =  from_i,
+                                to_i = to_i, values = values,session =  session)
+      # update for routed track - postprocession
+      if(!is.null(tmp_route$df)){
+        route_length$df <- as.numeric(sf::st_length(tmp_route$df)/1000)
+        update_list <- update_all(is_routed,tmp_route = tmp_route$df,session = session)
+        weatherdata$df <- update_list[[1]]
+        elevPoints$df <- update_list[[2]]
+      }
+    })
+  }
+  doRoute(input$routing)
 
 
+  # new module example ---------------------------------------------------------
+  # desc.
+  # pre execution (i.e. null obj...)
+  # ...
+  # variables/variable preperation
+  # ...
+  # module execution
+  # ...
+  # module postprocessing
+  # ...
+
+  # outputs --------------------------------------------------------------------
   # weather---------------------------------------------------------------------
   source("inst//modules/weather_module.R")
   observeEvent(weatherdata$df,{
@@ -490,19 +495,20 @@ server <- function(input, output, session) {
 
   #travel time here ------------------------------------------------------------
   output$traveltime <- renderTable({
-    if(!is.null(pKm$df)){ hikeR::hike_traveltime(pkm = pKm$df[,"pKm"], speed = input$pace)}
+    if(length(route_length$df != 0)){hikeR::hike_traveltime(pkm = sum(route_length$df), speed = input$pace)
+    } else {
+        NULL
+      }
   })
   #plot outputs here -----------------------------------------------------------
   source("inst/modules/elev_plot.R")
   observeEvent({elevPoints$df
     input$twoD},{
       output$plot <- plot_air(elevPoints$df, values$df, input$twoD)})
-  observeEvent({elevPoints_route$df
-    input$twoDr},{
-      output$plot_route <- plot_route(elevPoints_route$df,tmp_route$df, input$twoDr)})
 
   #import and export------------------------------------------------------------
   ##download
+  # download not working 30/06/18
   output$downloadData <- downloadHandler(
     filename = function() {
       if(input$gpx){
@@ -514,6 +520,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       obj = as(tmp_route$df, "Spatial")
+      print(obj)
       if(input$gpx){
         writeOGR(obj = obj ,dsn= file, layer="trip",
                  dataset_options="GPX_USE_EXTENSIONS=yes",driver="GPX")
