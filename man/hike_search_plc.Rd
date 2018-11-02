@@ -2,7 +2,8 @@
 % Please edit documentation in R/hike_create_lines.R
 \name{hike_search_plc}
 \alias{hike_search_plc}
-\title{redundant fun}
+\title{search fun, which throws an error if typed in searhterm could not be found,
+needed for shiny}
 \usage{
 hike_search_plc(instring)
 }
@@ -13,5 +14,9 @@ hike_search_plc(instring)
 coords of searchterm
 }
 \description{
-redundant fun
+search fun, which throws an error if typed in searhterm could not be found,
+needed for shiny
+}
+\examples{
+ hike_search_plc("Jena")
 }

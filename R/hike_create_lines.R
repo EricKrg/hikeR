@@ -55,7 +55,8 @@ hike_distance <- function(point_a, point_b, unit){
 #'
 #' @param searchterm - string
 #' @return coords of searchterm
-#' @example hike_search_plc("Jenvsc")
+#' @examples
+#'  hike_search_plc("Jena")
 #' @export
 hike_search_plc <- function(instring){
   t <- tryCatch({
@@ -65,6 +66,9 @@ hike_search_plc <- function(instring){
     message("adress not valid")
     no = TRUE
   })
+  if(purrr::is_empty(t)){
+    t <- TRUE
+  }
   return(t)
 }
 
