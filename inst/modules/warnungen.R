@@ -1,6 +1,4 @@
-library(sf)
-library(dplyr)
-library(stringr)
+
 
 
 warnungen = function() {
@@ -8,10 +6,10 @@ warnungen = function() {
   # ogrinfo(dsn, so=TRUE)
 
   warnungen = tryCatch({
-    warnungen = st_read("WFS:https://maps.dwd.de/geoserver/ows?service=wfs&version=2.0.0&request=GetCapabilities",
+    warnungen = sf::st_read("WFS:https://maps.dwd.de/geoserver/ows?service=wfs&version=2.0.0&request=GetCapabilities",
     layer = "dwd:Warnungen_Gemeinden",
     quiet = T) %>%
-    st_cast("GEOMETRYCOLLECTION") %>% st_collection_extract("POLYGON") %>%
+    sf::st_cast("GEOMETRYCOLLECTION") %>% sf::st_collection_extract("POLYGON") %>%
     dplyr::select(EVENT, DESCRIPTION, SENT, PARAMATERVALUE, WEB) %>%
     dplyr::mutate(EVENT = as.factor(stringr::str_to_title(as.character(EVENT))))
     },
