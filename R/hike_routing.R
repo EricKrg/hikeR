@@ -59,7 +59,7 @@ hike_routing <- function(data, shiny_progress,provider,profile,api){
         break
       }
       if(provider == "cycle"){
-        tmp[[i]] <- route_cyclestreet(from = data[i,] ,to = data[i+1,] ,
+        tmp[[i]] <- stplanr::route_cyclestreet(from = data[i,] ,to = data[i+1,] ,
                                       plan = profile, pat = api,
                                       base_url = "https://www.cyclestreets.net")
       }

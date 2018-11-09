@@ -1,6 +1,6 @@
 # update stat. bars. and weather
 
-update_all <- function(is_routed,values,tmp_route ,session){
+update_all <- function(is_routed,values,tmp_route ,session, pace){
   #print("updated fun")
   if(is_routed){
     if(!missing(tmp_route)){
@@ -23,6 +23,10 @@ update_all <- function(is_routed,values,tmp_route ,session){
   updateProgressBar(session = session, id = "down", value = round(pKm[1,3],digits = 2),total = pKm[1,5])
 
   weatherdata <- hikeR::hike_weather(elev)
-  update_list <- list(w = weatherdata, e = elev)
+
+
+
+  update_list <- list(w = weatherdata, e = elev, pKm = round(pKm[1,1],digits = 2))
+
   return(update_list) # returns a list of obj 1- weather 2- elev
   }

@@ -32,6 +32,7 @@ server <- function(input, output, session) {
   route_length <- reactiveValues(df = NULL)
   latest_route <- reactiveValues(df = NULL)
   last_list <- reactiveValues(df = NULL)
+  pKm <- reactiveValues(df = NULL)
   # intial values
   route_counter = reactiveValues(df = NULL)
   last_list$df = list()
@@ -150,7 +151,6 @@ server <- function(input, output, session) {
     x_sync$df = (input$leafmap_bounds$east + input$leafmap_bounds$west)/2
     y_sync$df = (input$leafmap_bounds$north + input$leafmap_bounds$south)/2
     zoom_sync$df = input$leafmap_zoom
-
   })
   observeEvent(input$search,{
     x_sync$df = search$df[1]
@@ -256,6 +256,7 @@ server <- function(input, output, session) {
                                 session = session)
       weatherdata$df <- update_list[[1]]
       elevPoints$df <- update_list[[2]]
+      pKm$df <- update_list[[3]]
       route_length$df <- hike_distance(values$df[1,],values$df[2,], unit = "m")
       print(hike_distance(values$df[1,],values$df[2,], unit = "m"))
     }
@@ -361,6 +362,14 @@ server <- function(input, output, session) {
         update_list <- update_all(is_routed,tmp_route = tmp_route$df,session = session)
         weatherdata$df <- update_list[[1]]
         elevPoints$df <- update_list[[2]]
+        pKm$df <- update_list[[3]]
+        output$traveltime <- renderTable({
+          if(length(route_length$df != 0)){ traveltime
+          } else {
+              NULL
+            }
+        })
+
       }
     })
   }
@@ -410,12 +419,18 @@ server <- function(input, output, session) {
   })
 
   #travel time here ------------------------------------------------------------
-  output$traveltime <- renderTable({
-    if(length(route_length$df != 0)){hikeR::hike_traveltime(pkm = sum(route_length$df), speed = input$pace)
-    } else {
-        NULL
-      }
+  observeEvent({input$pace
+    pKm$df}, {
+    print(pKm$df)
+    output$traveltime <- renderTable({
+      if(!is.null(pKm$df)){
+      hikeR::hike_traveltime(pkm = pKm$df, speed = input$pace)
+      } else { NULL }
+    })
   })
+
+
+
   #plot outputs here -----------------------------------------------------------
   source("inst/modules/elev_plot.R")
   observeEvent({elevPoints$df
