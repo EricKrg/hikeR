@@ -24,13 +24,13 @@ require(mapview)
 require(rgdal)
 require(raster)
 require(shinycssloaders)
-require(openrouteservice)
-require(hikeR)
+
+
 require(shinydashboardPlus)
 require(shinyjs)
 require(stringr)
-
-
+require(hikeR)
+require(openrouteservice)
 # constant like vars.
 help <- TRUE
 height_stats <- FALSE
