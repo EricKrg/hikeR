@@ -52,7 +52,7 @@ doRouting <- function(provider, plan, string_route, waypoint_list,
     } else {
       print("draw route")
 
-      tmp_route <- hikeR::hike_routing(values,shiny_progress = T,profile = profile,provider = provider,api)
+      tmp_route <- hikeR::hike_routing(values,shiny_progress = T,profile = profile, provider = provider,api)
     }
     print("do elev.")
     #if(routed)elevPoints_route <- hikeR::hike_spatial_elev(tmp_route,shiny_progress = T,Sys.getenv("apikey"))

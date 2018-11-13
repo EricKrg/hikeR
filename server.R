@@ -450,6 +450,9 @@ server <- function(input, output, session) {
 
     },
     content = function(filename) {
+      tmp_route$df[2] = "a"
+      print(class(tmp_route$df))
+      print(tmp_route$df)
       obj = as(tmp_route$df, "Spatial")
       if(input$gpx){
         writeOGR(obj = obj ,dsn= filename, layer="trip",
