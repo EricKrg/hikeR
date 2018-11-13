@@ -449,14 +449,13 @@ server <- function(input, output, session) {
       }
 
     },
-    content = function(file) {
+    content = function(filename) {
       obj = as(tmp_route$df, "Spatial")
-      print(obj)
       if(input$gpx){
-        writeOGR(obj = obj ,dsn= file, layer="trip",
+        writeOGR(obj = obj ,dsn= filename, layer="trip",
                  dataset_options="GPX_USE_EXTENSIONS=yes",driver="GPX")
       } else {
-        writeOGR(obj = obj ,dsn= file, layer="trip",driver="KML")
+        writeOGR(obj = obj ,dsn= filename, layer="trip",driver="KML")
       }
 
     }
