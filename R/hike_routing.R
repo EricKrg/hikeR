@@ -33,12 +33,12 @@ hike_routing <- function(data, shiny_progress,provider,profile,api){
                                         vehicle = profile, silent = T ,base_url = "https://graphhopper.com" )
         }
         else if(provider == "ORS"){
-          ors_api_key(api)
+          #ors_api_key(api)
           coord1 = data[i,]
           coord2 = data[i+1,]
           list_coords = list(c(coord1[,1],coord1[,2]), c(coord2[,1],coord2[,2]))
 
-          tmp[[i]] <- st_sf(geojsonsf::geojson_sf(ors_directions(list_coords,
+          tmp[[i]] <- st_sf(geojsonsf::geojson_sf(ors_directions(api_key = api, list_coords,
                                                                  profile = profile, elevation = F,
                                                                  format="geojson", parse_output = F))$geometry)
         }
