@@ -1,11 +1,11 @@
 
 # constant like vars. and api keys
-
+readRenviron(".Renviron")
 apikey <- Sys.getenv("apikey")
 cycle_api <- Sys.getenv("cycle_api")
-graph_hopper <- Sys.getenv("graph_hopper")
-openweathermap <- Sys.getenv("openweathermap")
-ors_api_key(Sys.getenv("ors"))
+# graph_hopper <- Sys.getenv("graph_hopper") # not in use
+openrouteservice::ors_api_key("58d904a497c67e00015b45fc441d07cea9f541b39ef5f7f66ebc4209")
+
 help <- TRUE
 
 # Define server logic
@@ -274,7 +274,7 @@ server <- function(input, output, session) {
     x <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[2]]
     y <- input$leafmap_reach_draw_all_features$features[[1]]$geometry$coordinates[[1]]
     ### new feature in reach - module excution ############
-    reach$df <- hikeR::hike_iso_create(y,x,range,profile)
+    reach$df <- hikeR::hike_iso_create(y,x,range,profile, key = Sys.getenv("ors"))
   })
 
   # load old route ---------------------------------------------------------
@@ -340,7 +340,7 @@ server <- function(input, output, session) {
       wayp_tmp <- list()
       for(i in wayp_list$name){
         print(i)
-        wayp_tmp[[j]] <- geo_code(input[[i]])
+        wayp_tmp[[j]] <-  geo_code(input[[i]])
         j <- j + 1 }
       # all variables for routing
       waypoint_list = data.frame(do.call(rbind,wayp_tmp))

@@ -33,11 +33,11 @@ hike_iso2sf = function(obj){ #only for iso polygons in
 #' @param  num coords, range, and profile(moving style)
 #' @return sf polygon
 #' @export
-hike_iso_create <- function(x,y,range,profile){
+hike_iso_create <- function(x,y,range,profile, key){
   range <- range*60
   t <- c(x,y)
   iso <- openrouteservice::ors_isochrones(t,range = range, profile = profile,
-                                          interval = range/4, range_type = "time")
+                                          interval = range/4, range_type = "time", api_key = key)
   sf <- hikeR::hike_iso2sf(iso)
   return(sf)
 }
