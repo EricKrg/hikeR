@@ -1,11 +1,11 @@
 # update stat. bars. and weather
 
-update_all <- function(is_routed,values,tmp_route ,session, pace){
+update_all <- function(is_routed,values,tmp_route ,session){
   #print("updated fun")
   if(is_routed){
     if(!missing(tmp_route)){
       #print("get el")
-      elev <- hikeR::hike_spatial_elev(tmp_route ,shiny_progress = T,Sys.getenv("apikey"))
+      elev <- hikeR::hike_spatial_elev(tmp_route ,shiny_progress = T,apikey = Sys.getenv("apikey"))
       #print("heigth")
       height <- format(hikeR::hike_height_diff(elev, col = "elev"),digits = 5)
     }
