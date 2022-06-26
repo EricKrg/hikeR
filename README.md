@@ -1,12 +1,6 @@
 # hikeR :tent:
 A shiny application in order to ease up planning for the next hiking or bike trip.
 
-## Test the app yourself here: 
-  http://mccoy.geogr.uni-jena.de:3838/eric/hikeR/  
-  **or**  
-  https://erickrg.shinyapps.io/hikeR/  
-## Installation
-
 ```r
 install.packages("devtools")
 devtools::install_github("EricKrg/hikeR")
